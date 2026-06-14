@@ -545,7 +545,7 @@ document.addEventListener('visibilitychange', () => {
 //  Snackbar
 // =====================================================================
 let snackTimer = null;
-function showSnackbar(msg) {
+function showSnackbar(msg, ms = 2600) {
   const el = $('#snackbar');
   el.textContent = msg;
   el.hidden = false;
@@ -554,7 +554,46 @@ function showSnackbar(msg) {
   snackTimer = setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => { el.hidden = true; }, 280);
-  }, 2600);
+  }, ms);
+}
+
+// =====================================================================
+//  Installation PWA (« Ajouter à l'écran d'accueil »)
+// =====================================================================
+let deferredPrompt = null;
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function setupInstall() {
+  const btns = document.querySelectorAll('.install-btn');
+  if (isStandalone) return; // déjà installée → on ne montre rien
+
+  // Android / Chromium : on capture l'invite native et on révèle le bouton
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btns.forEach((b) => { b.hidden = false; });
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    btns.forEach((b) => { b.hidden = true; });
+    showSnackbar('Installée ! 🎉');
+  });
+  // iOS : aucune invite automatique → on montre le bouton avec les instructions
+  if (isIos) btns.forEach((b) => { b.hidden = false; });
+
+  btns.forEach((b) => b.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      btns.forEach((x) => { x.hidden = true; });
+    } else if (isIos) {
+      showSnackbar('Partager ⬆️ puis « Sur l\'écran d\'accueil »', 6000);
+    } else {
+      showSnackbar('Menu du navigateur → « Installer / Ajouter à l\'écran d\'accueil »', 5000);
+    }
+  }));
 }
 
 // =====================================================================
@@ -735,6 +774,7 @@ function init() {
   buildTimersEditor();
   applySettingsToUI();
   wireEvents();
+  setupInstall();
   showScreen('home');
 }
 init();

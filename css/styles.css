@@ -67,7 +67,24 @@ body { display: flex; min-height: 100%; }
 .options-btn:active { transform: scale(.9); }
 
 /* En-tête d'écran (accueil) : aligne le bouton Options en haut à droite */
-.screen-head { display: flex; justify-content: flex-end; min-height: 48px; margin-bottom: 4px; }
+.screen-head { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 48px; margin-bottom: 4px; }
+
+/* Bouton d'installation PWA (visible seulement si installable) */
+.install-btn {
+  margin-right: auto; /* poussé à gauche, ⚙ reste à droite */
+  padding: 0 16px;
+  height: 48px;
+  font-size: .95rem;
+  font-weight: 700;
+  color: #04130f;
+  background: var(--accent);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease;
+}
+.install-btn:active { transform: scale(.95); background: var(--accent-press); }
+.install-btn[hidden] { display: none; }
 
 /* ---------- Primary button ---------- */
 .btn-primary {
