@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
 let settings = loadSettings();
 
 // ---- Session (persistée) : dernière config utilisée ----
-const DEFAULT_SESSION = { mode: 'pause', series: 3, effort: 60, rest: 60, pause: 60 };
+const DEFAULT_SESSION = { mode: 'pause', series: 3, effort: 60, rest: 60, pause: 60, effortAuto: true };
 let session = loadSession();
 
 // ---- État runtime ----
@@ -50,6 +50,7 @@ const rt = {
   intervalId: null,
   lastTick: 0,
   finished: false,
+  pickPhase: 'pause',  // en mode manuel : quelle phase on choisit (effort/pause)
 };
 
 let selectedSeries = 0;
@@ -160,8 +161,8 @@ function buildDurationGrid(gridEl, onPick, getSelected) {
 }
 
 function buildAllGrids() {
-  // Mode Pause seule : un tap lance la pause
-  buildDurationGrid($('#duration-grid'), (d) => { session.pause = d; saveSession(); startPhase('pause', d); });
+  // Grille principale : un tap lance la phase courante (pause seule, ou étape effort/pause manuelle)
+  buildDurationGrid($('#duration-grid'), (d) => pickDuration(d));
   // Mode Effort + Pause : sélection effort + pause puis Démarrer
   buildDurationGrid($('#effort-grid'),
     (d, b) => { selectedEffort = d; session.effort = d; markSelected('#effort-grid', b); },
@@ -189,12 +190,49 @@ function startSession() {
     selectedEffort = session.effort;
     selectedRest = session.rest;
     buildAllGrids(); // applique la sélection mémorisée
+    $('#opt-effortauto').checked = session.effortAuto;
+    applyEffortAutoUI();
     showView('setup');
   } else {
     buildAllGrids();
-    showView('duration');
+    showPauseChoice();
   }
   saveSession();
+}
+
+// Affiche/masque les grilles selon le mode auto/manuel
+function applyEffortAutoUI() {
+  const auto = session.effortAuto;
+  $('#setup-grids').hidden = !auto;
+  $('#setup-auto-hint').hidden = !auto;
+  $('#setup-manual-hint').hidden = auto;
+}
+
+// Étape de choix d'une durée
+function showPauseChoice() {
+  rt.pickPhase = 'pause';
+  $('#duration-title').textContent = 'Choisis ta pause';
+  showView('duration');
+}
+function showManualChoice(phase) {
+  rt.pickPhase = phase;
+  $('#duration-title').textContent = phase === 'effort'
+    ? '💪 Effort — choisis la durée'
+    : '😮‍💨 Pause — choisis la durée';
+  showView('duration');
+}
+
+// Tap sur une durée dans la grille principale
+function pickDuration(d) {
+  if (session.mode === 'pause') {
+    session.pause = d;
+  } else if (rt.pickPhase === 'effort') {
+    session.effort = d;
+  } else {
+    session.rest = d;
+  }
+  saveSession();
+  startPhase(rt.pickPhase, d);
 }
 
 function updateSeriesReadout() {
@@ -263,7 +301,14 @@ function backToChoice() {
   pauseTimer();
   clearTimerNotification();
   releaseWakeLock();
-  showView(session.mode === 'effort' ? 'setup' : 'duration');
+  if (session.mode === 'pause') { showPauseChoice(); return; }
+  if (session.effortAuto) {
+    $('#opt-effortauto').checked = session.effortAuto;
+    applyEffortAutoUI();
+    showView('setup');
+  } else {
+    showManualChoice(rt.phase); // re-choisir la durée de l'étape en cours
+  }
 }
 
 function loop() {
@@ -303,17 +348,28 @@ function onPhaseComplete() {
   playEndFeedback(bg);
 
   let sessionEnd = false;
-  let autoNext = null; // 'effort' | 'pause'
+  let autoNext = null;    // enchaînement automatique (effort auto)
+  let manualNext = null;  // étape suivante à choisir à la main
 
   if (session.mode === 'pause') {
     adjustSeries(-1);
     sessionEnd = rt.seriesRemaining <= 0;
-  } else if (rt.phase === 'effort') {
-    autoNext = 'pause'; // enchaîne automatiquement
-  } else { // fin de pause → 1 série bouclée
-    adjustSeries(-1);
-    sessionEnd = rt.seriesRemaining <= 0;
-    if (!sessionEnd) autoNext = 'effort';
+  } else if (session.effortAuto) { // Effort + Pause, enchaîné
+    if (rt.phase === 'effort') {
+      autoNext = 'pause';
+    } else {
+      adjustSeries(-1);
+      sessionEnd = rt.seriesRemaining <= 0;
+      if (!sessionEnd) autoNext = 'effort';
+    }
+  } else { // Effort + Pause, à chaque étape
+    if (rt.phase === 'effort') {
+      manualNext = 'pause';
+    } else {
+      adjustSeries(-1);
+      sessionEnd = rt.seriesRemaining <= 0;
+      if (!sessionEnd) manualNext = 'effort';
+    }
   }
 
   if (sessionEnd) {
@@ -325,9 +381,10 @@ function onPhaseComplete() {
     startPhase(autoNext, autoNext === 'pause' ? session.rest : session.effort);
     return;
   }
-  // Mode pause, pas fini : retour au choix
+  // On revient à un choix de durée (pause seule, ou étape manuelle)
   if (bg) showFinishNotification(); else clearTimerNotification();
-  showView('duration');
+  if (manualNext) showManualChoice(manualNext);
+  else showPauseChoice();
 }
 
 // ⏭ Série suivante : coupe le timer en cours et fait −1 série
@@ -337,8 +394,12 @@ function skipSeries() {
   clearTimerNotification();
   adjustSeries(-1);
   if (rt.seriesRemaining <= 0) { finishSession(); return; }
-  if (session.mode === 'effort') startPhase('effort', session.effort);
-  else showView('duration');
+  if (session.mode === 'effort') {
+    if (session.effortAuto) startPhase('effort', session.effort);
+    else showManualChoice('effort');
+  } else {
+    showPauseChoice();
+  }
 }
 
 function finishSession() {
@@ -639,10 +700,21 @@ function wireEvents() {
   $('#home-btn').addEventListener('click', () => { pauseTimer(); clearTimerNotification(); releaseWakeLock(); showScreen('home'); });
   $('#series-minus').addEventListener('click', () => adjustSeries(-1));
   $('#series-plus').addEventListener('click', () => adjustSeries(1));
-  $('#setup-start').addEventListener('click', () => {
-    if (!selectedEffort || !selectedRest) { showSnackbar('Choisis effort et pause'); return; }
+  $('#opt-effortauto').addEventListener('change', (e) => {
+    session.effortAuto = e.target.checked;
     saveSession();
-    startPhase('effort', selectedEffort);
+    applyEffortAutoUI();
+  });
+  $('#setup-start').addEventListener('click', () => {
+    if (session.effortAuto) {
+      if (!selectedEffort || !selectedRest) { showSnackbar('Choisis effort et pause'); return; }
+      saveSession();
+      startPhase('effort', selectedEffort);
+    } else {
+      // Mode à chaque étape : on commence par choisir la durée d'effort
+      saveSession();
+      showManualChoice('effort');
+    }
   });
   $('#playpause-btn').addEventListener('click', togglePlayPause);
   $('#reset-btn').addEventListener('click', resetTimer);

@@ -172,6 +172,19 @@ body { display: flex; min-height: 100%; }
 .view-title { font-size: 1.25rem; font-weight: 700; margin: 8px 0 16px; color: var(--text-dim); }
 .view-title--rest { margin-top: 22px; }
 
+/* Toggle auto/manuel sur l'écran de réglage Effort+Pause */
+.setup-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; max-width: 420px;
+  background: var(--bg-elev); border-radius: 16px;
+  padding: 14px 18px; margin-bottom: 8px;
+}
+.setup-hint { max-width: 420px; text-align: center; margin-top: 0; }
+#setup-grids { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; }
+#setup-grids[hidden] { display: none; }
+/* Espace au-dessus du bouton Démarrer pour ne pas coller au contenu */
+#setup-start { margin-top: 28px; }
+
 /* ---------- Duration grid ---------- */
 .duration-grid {
   display: grid;

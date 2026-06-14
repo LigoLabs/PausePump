@@ -54,16 +54,24 @@
 
     <!-- Réglage Effort + Pause -->
     <div id="setup-view" class="view">
-      <h2 class="view-title">⏱️ Durée d'effort</h2>
-      <div id="effort-grid" class="duration-grid" role="group" aria-label="Durée d'effort"></div>
-      <h2 class="view-title view-title--rest">😮‍💨 Durée de pause</h2>
-      <div id="rest-grid" class="duration-grid" role="group" aria-label="Durée de pause"></div>
+      <div class="setup-toggle">
+        <span class="opt-label">🔁 Enchaînement auto</span>
+        <input type="checkbox" id="opt-effortauto" class="switch" />
+      </div>
+      <p id="setup-auto-hint" class="opt-hint setup-hint">Tu règles l'effort &amp; la pause, puis ça enchaîne tout seul en continu.</p>
+      <p id="setup-manual-hint" class="opt-hint setup-hint" hidden>Tu choisiras la durée à chaque étape : d'abord l'effort, puis la pause.</p>
+      <div id="setup-grids">
+        <h2 class="view-title">⏱️ Durée d'effort</h2>
+        <div id="effort-grid" class="duration-grid" role="group" aria-label="Durée d'effort"></div>
+        <h2 class="view-title view-title--rest">😮‍💨 Durée de pause</h2>
+        <div id="rest-grid" class="duration-grid" role="group" aria-label="Durée de pause"></div>
+      </div>
       <button id="setup-start" class="btn-primary" type="button">Démarrer ▶</button>
     </div>
 
-    <!-- Choix de la durée (mode Pause seule) -->
+    <!-- Choix de la durée (mode Pause seule ou étape Effort/Pause manuelle) -->
     <div id="duration-view" class="view">
-      <h2 class="view-title">Choisis ta pause</h2>
+      <h2 id="duration-title" class="view-title">Choisis ta pause</h2>
       <div id="duration-grid" class="duration-grid" role="group" aria-label="Durée de la pause"></div>
     </div>
 
