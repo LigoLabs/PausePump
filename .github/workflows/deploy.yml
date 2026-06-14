@@ -31,9 +31,10 @@ jobs:
         run: |
           VERSION="${GITHUB_SHA::8}"
           echo "Build version: $VERSION"
-          sed -i "s/__BUILD_VERSION__/$VERSION/g" index.html sw.js
+          sed -i "s/__BUILD_VERSION__/$VERSION/g" index.html sw.js js/app.js
           echo "— index.html —"; grep -o '?v=[0-9a-f]*' index.html | sort -u
-          echo "— sw.js —"; grep -o "pausepump-[0-9a-f]*" sw.js | head -1
+          echo "— app.js —"; grep -o "APP_VERSION = '[0-9a-f]*'" js/app.js
+          echo "remaining placeholders:"; grep -c "__BUILD_VERSION__" index.html sw.js js/app.js || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

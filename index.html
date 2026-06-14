@@ -110,6 +110,12 @@
   <!-- Snackbar (notification brève, non-bloquante) -->
   <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>
 
+  <!-- Bandeau de mise à jour PWA -->
+  <div id="update-banner" class="update-banner" role="alert" hidden>
+    <span class="update-text">🔄 Nouvelle version disponible</span>
+    <button id="update-apply" class="update-btn" type="button">Mettre à jour</button>
+  </div>
+
   <!-- MODALE OPTIONS -->
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card">
@@ -176,6 +182,11 @@
           <button id="timers-reset" class="link-btn" type="button">Réinitialiser par défaut</button>
         </div>
       </div>
+
+      <footer class="modal-foot">
+        <span>PausePump · version <span id="app-version">dev</span></span>
+        <button id="check-update" class="link-btn" type="button">Vérifier les mises à jour</button>
+      </footer>
     </div>
   </div>
 

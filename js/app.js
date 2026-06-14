@@ -22,6 +22,10 @@ const SOUNDS = {
 const STORE_SETTINGS = 'pausepump.settings.v1';
 const STORE_SESSION = 'pausepump.session.v1';
 
+// Version de build (injectée par la CI). Sert à afficher la version et gérer les MAJ.
+const APP_VERSION = '__BUILD_VERSION__';
+function versionLabel() { return APP_VERSION.indexOf('BUILD_VERSION') !== -1 ? 'dev' : APP_VERSION; }
+
 // ---- Réglages (persistés) ----
 const DEFAULT_SETTINGS = {
   keepAwake: true,
@@ -514,6 +518,13 @@ async function clearTimerNotification() {
   if (!reg) return;
   (await reg.getNotifications({ tag: 'pausepump-timer' })).forEach((n) => n.close());
 }
+// Ferme TOUTES les notifications de l'app (minuteur + fin) — au retour sur l'app.
+async function clearAllNotifications() {
+  if (!('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  if (!reg) return;
+  (await reg.getNotifications()).forEach((n) => n.close());
+}
 async function showFinishNotification() {
   if (!notifReady()) return;
   const reg = await navigator.serviceWorker.ready.catch(() => null);
@@ -532,13 +543,14 @@ async function showFinishNotification() {
 // Quand l'app revient au premier plan : on enlève la notif et on reprend le wake lock
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    clearTimerNotification();
+    clearAllNotifications(); // au retour sur l'app : on enlève toutes ses notifs
     lastNotifSec = -1;
     if (rt.running) requestWakeLock();
   } else if (rt.running) {
     showTimerNotification();
   }
 });
+window.addEventListener('focus', clearAllNotifications);
 
 // =====================================================================
 //  Snackbar
@@ -672,6 +684,17 @@ function wireSettings() {
     settings.timers = DEFAULT_TIMERS.slice();
     saveSettings(); buildTimersEditor(); rebuildGridsKeepSel();
   });
+
+  $('#app-version').textContent = versionLabel();
+  $('#check-update').addEventListener('click', async () => {
+    if (!swRegistration) { showSnackbar('Mises à jour indisponibles ici'); return; }
+    showSnackbar('Recherche de mise à jour…');
+    try { await swRegistration.update(); } catch (_) {}
+    setTimeout(() => {
+      const pending = swRegistration.waiting || $('#update-banner').classList.contains('show');
+      if (!pending) showSnackbar('Tu es à jour ✓');
+    }, 1500);
+  });
 }
 
 // ---- Éditeur de timers ----
@@ -772,27 +795,62 @@ function init() {
   wireEvents();
   setupInstall();
   showScreen('home');
+  clearAllNotifications(); // ouverture de l'app : on nettoie d'éventuelles notifs restantes
 }
 init();
 
+// =====================================================================
+//  Gestion des versions / mises à jour de la PWA
+// =====================================================================
+let updateAccepted = false;
+let swRegistration = null;
+
+function showUpdateBanner(onApply) {
+  const banner = $('#update-banner');
+  if (!banner || !banner.hidden === false) { /* déjà visible */ }
+  banner.hidden = false;
+  requestAnimationFrame(() => banner.classList.add('show'));
+  $('#update-apply').onclick = () => {
+    $('#update-apply').disabled = true;
+    $('#update-apply').textContent = 'Mise à jour…';
+    onApply();
+  };
+}
+
 if ('serviceWorker' in navigator) {
   // updateViaCache: 'none' → le sw.js est toujours re-téléchargé (jamais servi par
-  // le cache HTTP), donc une nouvelle version est détectée à chaque visite.
-  const hadController = !!navigator.serviceWorker.controller;
-  let refreshing = false;
+  // le cache HTTP) : une nouvelle version est détectée de façon fiable.
 
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
-      .then((reg) => { reg.update().catch(() => {}); })
-      .catch(() => {});
+  // Recharge uniquement quand l'utilisateur a accepté la mise à jour.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (updateAccepted) window.location.reload();
   });
 
-  // Quand un nouveau SW prend le contrôle : on recharge pour récupérer la dernière
-  // version — sauf en plein décompte (on prévient alors via la snackbar).
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing || !hadController) return; // pas de reload à la 1re installation
-    refreshing = true;
-    if (rt.running) { showSnackbar('🔄 Nouvelle version prête (recharge plus tard)'); refreshing = false; }
-    else location.reload();
+  window.addEventListener('load', async () => {
+    const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => null);
+    if (!reg) return;
+    swRegistration = reg;
+
+    const promptIfReady = (worker) => {
+      // Il y avait déjà un contrôleur → c'est une vraie mise à jour (pas la 1re install)
+      if (worker && navigator.serviceWorker.controller) {
+        showUpdateBanner(() => { updateAccepted = true; worker.postMessage({ type: 'SKIP_WAITING' }); });
+      }
+    };
+
+    if (reg.waiting) promptIfReady(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed') promptIfReady(nw);
+      });
+    });
+
+    // Vérifie les mises à jour : au chargement, périodiquement, et au retour sur l'app.
+    const check = () => reg.update().catch(() => {});
+    check();
+    setInterval(check, 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
   });
 }

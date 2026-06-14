@@ -20,9 +20,14 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  // Pas de skipWaiting automatique : la nouvelle version attend que l'utilisateur
+  // accepte la mise à jour (message SKIP_WAITING) pour prendre le relais.
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+});
+
+// La page demande l'activation immédiate de la nouvelle version.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
