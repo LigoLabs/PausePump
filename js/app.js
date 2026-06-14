@@ -278,7 +278,7 @@ function startPhase(phase, duration) {
   rt.duration = duration;
   rt.remaining = duration;
   rt.finished = false;
-  lastNotifSec = -1;
+  timerNotifShown = false;
   updatePhaseUI();
   showView('timer');
   updateTimerUI();
@@ -601,23 +601,26 @@ async function ensureNotifPermission() {
 function notifReady() {
   return ('Notification' in window) && Notification.permission === 'granted' && navigator.serviceWorker;
 }
-let lastNotifSec = -1;
+let timerNotifShown = false;
 function maybeNotify() {
   if (!settings.notify || !document.hidden || !notifReady()) return;
-  const sec = Math.ceil(rt.remaining);
-  if (sec === lastNotifSec) return;
-  lastNotifSec = sec;
+  if (timerNotifShown) return; // une seule notif « en cours » par passage en arrière-plan
+  timerNotifShown = true;
   showTimerNotification();
 }
 async function showTimerNotification() {
   if (!notifReady() || !document.hidden) return; // jamais de notif quand l'app est au premier plan
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return;
+  if (!document.hidden) return; // l'app est peut-être redevenue visible pendant l'await
   const label = session.mode === 'effort' ? (rt.phase === 'effort' ? 'Effort 💪' : 'Pause 😮‍💨') : 'Pause';
+  // Pas de décompte affiché : en arrière-plan le JS est gelé, un chrono figé
+  // donnerait l'impression d'une notif « bloquée ». On reste sur un état clair,
+  // non-collant (requireInteraction:false) pour qu'elle se ferme sans souci.
   reg.showNotification('PausePump ⏱️', {
     tag: 'pausepump-timer',
-    body: `${label} — ${formatTime(Math.ceil(rt.remaining))} • ${rt.seriesRemaining} série(s)`,
-    silent: true, renotify: false, requireInteraction: true,
+    body: `${label} en cours • ${rt.seriesRemaining} série(s) restante(s)`,
+    silent: true, renotify: false, requireInteraction: false,
     icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
   });
 }
@@ -630,8 +633,14 @@ async function clearTimerNotification() {
 // Ferme TOUTES les notifications de l'app (minuteur + fin) — au retour sur l'app.
 async function clearAllNotifications() {
   if (!('serviceWorker' in navigator)) return;
+  // 1) On demande au SW de fermer ses notifs (méthode la plus fiable selon le navigateur).
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_NOTIFS' });
+  }
+  // 2) On ferme aussi depuis la page (repli).
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return;
+  if (reg.active) reg.active.postMessage({ type: 'CLEAR_NOTIFS' });
   (await reg.getNotifications()).forEach((n) => n.close());
 }
 // Nettoie tout de suite puis ré-essaie brièvement : une notif peut être affichée
@@ -662,9 +671,10 @@ async function showFinishNotification() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     clearAllNotificationsSoon(); // au retour sur l'app : on enlève toutes ses notifs
-    lastNotifSec = -1;
+    timerNotifShown = false;
     if (rt.running) requestWakeLock();
   } else if (rt.running) {
+    timerNotifShown = true;
     showTimerNotification();
   }
 });

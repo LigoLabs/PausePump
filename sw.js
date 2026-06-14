@@ -27,7 +27,15 @@ self.addEventListener('install', (event) => {
 
 // La page demande l'activation immédiate de la nouvelle version.
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  const type = event.data && event.data.type;
+  if (type === 'SKIP_WAITING') self.skipWaiting();
+  // Fermeture des notifications depuis le SW : c'est la méthode la plus fiable
+  // (la page peut échouer à fermer une notif selon le navigateur).
+  if (type === 'CLEAR_NOTIFS') {
+    event.waitUntil(
+      self.registration.getNotifications().then((ns) => ns.forEach((n) => n.close()))
+    );
+  }
 });
 
 self.addEventListener('activate', (event) => {
