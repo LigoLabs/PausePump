@@ -120,6 +120,7 @@ function buildHome() {
 function selectMode(mode) {
   session.mode = mode;
   document.querySelectorAll('.seg').forEach((s) => s.classList.toggle('selected', s.dataset.mode === mode));
+  saveSession();
 }
 
 function selectSeries(n) {
@@ -131,6 +132,7 @@ function selectSeries(n) {
     c.setAttribute('aria-checked', on ? 'true' : 'false');
   });
   $('#start-btn').disabled = selectedSeries < 1;
+  saveSession();
 }
 
 // =====================================================================
@@ -165,10 +167,10 @@ function buildAllGrids() {
   buildDurationGrid($('#duration-grid'), (d) => pickDuration(d));
   // Mode Effort + Pause : sélection effort + pause puis Démarrer
   buildDurationGrid($('#effort-grid'),
-    (d, b) => { selectedEffort = d; session.effort = d; markSelected('#effort-grid', b); },
+    (d, b) => { selectedEffort = d; session.effort = d; saveSession(); markSelected('#effort-grid', b); },
     () => selectedEffort);
   buildDurationGrid($('#rest-grid'),
-    (d, b) => { selectedRest = d; session.rest = d; markSelected('#rest-grid', b); },
+    (d, b) => { selectedRest = d; session.rest = d; saveSession(); markSelected('#rest-grid', b); },
     () => selectedRest);
 }
 function markSelected(gridSel, btn) {

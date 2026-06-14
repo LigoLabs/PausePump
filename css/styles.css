@@ -28,6 +28,19 @@ html, body {
 }
 body { display: flex; min-height: 100%; }
 
+/* ---------- Scrollbars (cohérentes avec le thème sombre) ---------- */
+* { scrollbar-width: thin; scrollbar-color: var(--track) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--track);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #3a4358; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:active { background: var(--accent); background-clip: padding-box; }
+
 /* ---------- Screens ---------- */
 .screen {
   display: none;
@@ -135,7 +148,6 @@ body { display: flex; min-height: 100%; }
   background: var(--bg-elev);
   border-radius: var(--radius);
   padding: 10px 12px;
-  margin-right: 56px; /* laisse la place au bouton Options */
 }
 .icon-btn {
   flex: 0 0 auto;
@@ -261,12 +273,12 @@ body { display: flex; min-height: 100%; }
 /* ---------- Snackbar ---------- */
 .snackbar {
   position: fixed;
-  left: 50%;
-  bottom: calc(var(--safe-bottom) + 24px);
-  transform: translateX(-50%) translateY(20px);
-  z-index: 70;
-  max-width: 90vw;
-  padding: 14px 22px;
+  top: calc(var(--safe-top) + 72px);
+  right: 16px;
+  transform: translateY(-16px);
+  z-index: 65;
+  max-width: 80vw;
+  padding: 13px 20px;
   font-size: 1rem;
   font-weight: 700;
   color: #04130f;
@@ -277,7 +289,7 @@ body { display: flex; min-height: 100%; }
   pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
 }
-.snackbar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.snackbar.show { opacity: 1; transform: translateY(0); }
 
 /* ---------- Modal ---------- */
 .modal {
@@ -312,7 +324,7 @@ body { display: flex; min-height: 100%; }
 }
 .tab.is-active { background: var(--bg-elev-2); color: var(--text); }
 
-.modal-body { overflow-y: auto; margin-top: 12px; -webkit-overflow-scrolling: touch; }
+.modal-body { overflow-y: auto; overflow-x: hidden; margin-top: 12px; -webkit-overflow-scrolling: touch; }
 .tab-panel { display: none; }
 .tab-panel.is-active { display: block; }
 
