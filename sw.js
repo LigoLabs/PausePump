@@ -1,14 +1,18 @@
-/* PausePump — service worker pour le mode hors-ligne. */
-const CACHE = 'pausepump-v2';
+/* PausePump — service worker (mode hors-ligne + cache-busting).
+   __BUILD_VERSION__ est remplacé par le SHA du commit pendant la CI.
+   Comme le nom du cache et les URLs versionnées changent à chaque déploiement,
+   le SW se réinstalle et récupère toujours la dernière version. */
+const VERSION = '__BUILD_VERSION__';
+const CACHE = 'pausepump-' + VERSION;
+const V = '?v=' + VERSION;
 
-// Chemins relatifs (résolus par rapport au scope du SW) → compatibles
-// avec un déploiement en sous-dossier comme GitHub Pages (/PausePump/).
+// Chemins relatifs (résolus depuis le scope du SW) → compatibles GitHub Pages (/PausePump/).
 const ASSETS = [
   './',
   './index.html',
-  './css/styles.css',
-  './js/app.js',
-  './manifest.json',
+  './css/styles.css' + V,
+  './js/app.js' + V,
+  './manifest.json' + V,
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/maskable-512.png',
@@ -33,15 +37,16 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
-  // Navigations : réseau d'abord, repli sur le cache (puis index).
+  // Navigations : réseau d'abord (toujours la dernière page), repli sur le cache.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+      fetch(req).catch(() => caches.match(req, { ignoreSearch: true })
+        .then((r) => r || caches.match('./index.html')))
     );
     return;
   }
 
-  // Autres ressources : cache d'abord, sinon réseau (et on met en cache).
+  // Autres ressources : cache d'abord (les URLs sont versionnées), sinon réseau.
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
@@ -51,7 +56,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((cache) => cache.put(req, copy));
         }
         return res;
-      });
+      }).catch(() => caches.match(req, { ignoreSearch: true }));
     })
   );
 });

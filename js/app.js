@@ -665,5 +665,23 @@ function init() {
 init();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // updateViaCache: 'none' → le sw.js est toujours re-téléchargé (jamais servi par
+  // le cache HTTP), donc une nouvelle version est détectée à chaque visite.
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((reg) => { reg.update().catch(() => {}); })
+      .catch(() => {});
+  });
+
+  // Quand un nouveau SW prend le contrôle : on recharge pour récupérer la dernière
+  // version — sauf en plein décompte (on prévient alors via la snackbar).
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return; // pas de reload à la 1re installation
+    refreshing = true;
+    if (rt.running) { showSnackbar('🔄 Nouvelle version prête (recharge plus tard)'); refreshing = false; }
+    else location.reload();
+  });
 }
