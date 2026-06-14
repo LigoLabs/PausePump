@@ -16,11 +16,11 @@
   <link rel="stylesheet" href="css/styles.css?v=__BUILD_VERSION__" />
 </head>
 <body>
-  <!-- Bouton Options — toujours visible -->
-  <button id="options-btn" class="options-btn" type="button" aria-label="Options">⚙</button>
-
   <!-- ÉCRAN 1 — Accueil -->
   <section id="screen-home" class="screen is-active">
+    <header class="screen-head">
+      <button class="options-btn" type="button" aria-label="Options">⚙</button>
+    </header>
     <div class="home-inner">
       <h1 class="brand">Pause<span>Pump</span></h1>
       <p class="tagline">Gère tes pauses & efforts 💪</p>
@@ -49,7 +49,7 @@
         </div>
         <button id="series-plus" class="step-btn" type="button" aria-label="Une série de plus">+</button>
       </div>
-      <span class="topbar-spacer" aria-hidden="true"></span>
+      <button class="options-btn" type="button" aria-label="Options">⚙</button>
     </header>
 
     <!-- Réglage Effort + Pause -->

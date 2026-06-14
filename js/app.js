@@ -595,7 +595,8 @@ function updateNotifStatus() {
 }
 
 function wireSettings() {
-  $('#options-btn').addEventListener('click', () => { getAudioCtx(); openSettings(); });
+  document.querySelectorAll('.options-btn').forEach((btn) =>
+    btn.addEventListener('click', () => { getAudioCtx(); openSettings(); }));
   $('#settings-close').addEventListener('click', closeSettings);
   $('#settings-modal').addEventListener('click', (e) => { if (e.target.id === 'settings-modal') closeSettings(); });
 

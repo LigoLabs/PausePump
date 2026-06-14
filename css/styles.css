@@ -51,24 +51,23 @@ body { display: flex; min-height: 100%; }
 }
 .screen.is-active { display: flex; }
 
-/* ---------- Options button (always visible) ---------- */
+/* ---------- Options button (en flux, pas en position fixe) ---------- */
 .options-btn {
-  position: fixed;
-  top: calc(var(--safe-top) + 14px);
-  right: 16px;
-  z-index: 60;
-  width: 46px;
-  height: 46px;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
   font-size: 1.4rem;
   color: var(--text);
-  background: rgba(31, 37, 51, .9);
-  border: 1px solid rgba(255,255,255,.06);
+  background: var(--bg-elev-2);
+  border: 1px solid rgba(255,255,255,.05);
   border-radius: 14px;
   cursor: pointer;
-  backdrop-filter: blur(6px);
   transition: transform .08s ease;
 }
 .options-btn:active { transform: scale(.9); }
+
+/* En-tête d'écran (accueil) : aligne le bouton Options en haut à droite */
+.screen-head { display: flex; justify-content: flex-end; min-height: 48px; margin-bottom: 4px; }
 
 /* ---------- Primary button ---------- */
 .btn-primary {
@@ -160,7 +159,6 @@ body { display: flex; min-height: 100%; }
   transition: transform .08s ease;
 }
 .icon-btn:active { transform: scale(.92); }
-.topbar-spacer { width: 8px; flex: 0 0 auto; }
 .series-counter { display: flex; align-items: center; gap: 12px; }
 .step-btn {
   width: 48px; height: 48px;
