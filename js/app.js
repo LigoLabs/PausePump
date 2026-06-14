@@ -31,7 +31,6 @@ const DEFAULT_SETTINGS = {
   soundId: 'triple',
   notify: true,
   notifySound: true,
-  notifySoundId: 'triple',
   timers: DEFAULT_TIMERS.slice(),
 };
 let settings = loadSettings();
@@ -420,12 +419,11 @@ function setPlayPause(running) {
 //  Retour sensoriel : son, vibration, notification
 // =====================================================================
 function playEndFeedback(bg) {
-  if (bg) {
-    if (settings.notifySound) playSound(settings.notifySoundId);
-  } else {
-    if (settings.sound) playSound(settings.soundId);
-    if (settings.vibrate) vibrate([200, 100, 200, 100, 200]);
-  }
+  // En arrière-plan, la page est souvent suspendue par l'OS : c'est la notification
+  // système (son du téléphone + vibration) qui prend le relais. Ici, 1er plan seulement.
+  if (bg) return;
+  if (settings.sound) playSound(settings.soundId);
+  if (settings.vibrate) vibrate([200, 100, 200, 100, 200]);
 }
 
 // ---- Web Audio ----
@@ -525,6 +523,7 @@ async function showFinishNotification() {
     tag: 'pausepump-done',
     body: 'Temps écoulé !',
     renotify: true, requireInteraction: false,
+    silent: !settings.notifySound, // son = tonalité système du téléphone (on/off ici)
     vibrate: settings.vibrate ? [200, 100, 200] : undefined,
     icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
   });
@@ -621,7 +620,6 @@ function applySettingsToUI() {
   buildSoundSelect($('#opt-soundid'), settings.soundId);
   $('#opt-notify').checked = settings.notify;
   $('#opt-notifysound').checked = settings.notifySound;
-  buildSoundSelect($('#opt-notifysoundid'), settings.notifySoundId);
   updateNotifStatus();
 }
 
@@ -665,8 +663,6 @@ function wireSettings() {
     if (e.target.checked) { await ensureNotifPermission(); updateNotifStatus(); }
   });
   $('#opt-notifysound').addEventListener('change', (e) => { settings.notifySound = e.target.checked; saveSettings(); });
-  $('#opt-notifysoundid').addEventListener('change', (e) => { settings.notifySoundId = e.target.value; saveSettings(); playSound(settings.notifySoundId); });
-  $('#preview-notifsound').addEventListener('click', () => { getAudioCtx(); playSound(settings.notifySoundId); });
 
   $('#timer-add').addEventListener('click', () => {
     settings.timers.push(60);
