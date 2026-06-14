@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f1219" />
-  <meta name="description" content="PausePump — gérez vos temps de repos entre les séries de muscu. Ultra simple." />
+  <meta name="description" content="PausePump — gérez vos temps de repos et d'effort entre les séries de muscu. Ultra simple." />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,11 +16,19 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <!-- ÉCRAN 1 — Accueil : nombre de séries -->
+  <!-- Bouton Options — toujours visible -->
+  <button id="options-btn" class="options-btn" type="button" aria-label="Options">⚙</button>
+
+  <!-- ÉCRAN 1 — Accueil -->
   <section id="screen-home" class="screen is-active">
     <div class="home-inner">
       <h1 class="brand">Pause<span>Pump</span></h1>
-      <p class="tagline">Gère tes temps de repos 💪</p>
+      <p class="tagline">Gère tes pauses & efforts 💪</p>
+
+      <div class="mode-seg" role="radiogroup" aria-label="Mode">
+        <button type="button" class="seg" data-mode="pause" role="radio">Pause seule</button>
+        <button type="button" class="seg" data-mode="effort" role="radio">Effort + Pause</button>
+      </div>
 
       <h2 class="question">Combien de séries ?</h2>
       <div id="series-grid" class="series-grid" role="radiogroup" aria-label="Nombre de séries"></div>
@@ -29,7 +37,7 @@
     </div>
   </section>
 
-  <!-- ÉCRAN 2 — Pauses -->
+  <!-- ÉCRAN 2 — Séance -->
   <section id="screen-main" class="screen">
     <header class="topbar">
       <button id="home-btn" class="icon-btn" type="button" aria-label="Retour à l'accueil">⌂</button>
@@ -44,18 +52,28 @@
       <span class="topbar-spacer" aria-hidden="true"></span>
     </header>
 
-    <!-- Choix de la durée -->
-    <div id="duration-view" class="view is-active">
+    <!-- Réglage Effort + Pause -->
+    <div id="setup-view" class="view">
+      <h2 class="view-title">⏱️ Durée d'effort</h2>
+      <div id="effort-grid" class="duration-grid" role="group" aria-label="Durée d'effort"></div>
+      <h2 class="view-title view-title--rest">😮‍💨 Durée de pause</h2>
+      <div id="rest-grid" class="duration-grid" role="group" aria-label="Durée de pause"></div>
+      <button id="setup-start" class="btn-primary" type="button">Démarrer ▶</button>
+    </div>
+
+    <!-- Choix de la durée (mode Pause seule) -->
+    <div id="duration-view" class="view">
       <h2 class="view-title">Choisis ta pause</h2>
       <div id="duration-grid" class="duration-grid" role="group" aria-label="Durée de la pause"></div>
     </div>
 
     <!-- Décompte -->
     <div id="timer-view" class="view">
+      <div id="phase-badge" class="phase-badge phase-pause">Pause</div>
       <div class="ring-wrap">
         <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
           <circle class="ring-track" cx="110" cy="110" r="100" />
-          <circle id="ring-progress" class="ring-progress" cx="110" cy="110" r="100" />
+          <circle id="ring-progress" class="ring-progress phase-pause" cx="110" cy="110" r="100" />
         </svg>
         <div class="ring-center">
           <span id="time-display" class="time-display">0:00</span>
@@ -70,6 +88,9 @@
         <button id="playpause-btn" class="ctrl-btn ctrl-main" type="button" aria-label="Pause / Reprendre">
           <span class="ctrl-ico" id="playpause-ico">⏸</span><span class="ctrl-txt" id="playpause-txt">Pause</span>
         </button>
+        <button id="skip-btn" class="ctrl-btn" type="button" aria-label="Série suivante">
+          <span class="ctrl-ico">⏭</span><span class="ctrl-txt">Suivante</span>
+        </button>
         <button id="change-btn" class="ctrl-btn" type="button" aria-label="Changer la durée">
           <span class="ctrl-ico">⟲</span><span class="ctrl-txt">Durée</span>
         </button>
@@ -77,15 +98,83 @@
     </div>
   </section>
 
-  <!-- ÉCRAN 3 — Fin -->
-  <section id="screen-done" class="screen">
-    <div class="done-inner">
-      <div class="done-emoji">🎉</div>
-      <h1 class="done-title">Terminé !</h1>
-      <p class="done-sub">Belle séance, repose-toi bien.</p>
-      <button id="newsession-btn" class="btn-primary" type="button">Nouvelle séance</button>
+  <!-- Snackbar (notification brève, non-bloquante) -->
+  <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>
+
+  <!-- MODALE OPTIONS -->
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2>Options</h2>
+        <button id="settings-close" class="icon-btn" type="button" aria-label="Fermer">✕</button>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="son" role="tab" type="button">🔊 Son</button>
+        <button class="tab" data-tab="notif" role="tab" type="button">🔔 Notif</button>
+        <button class="tab" data-tab="timers" role="tab" type="button">⏱️ Timers</button>
+      </nav>
+
+      <div class="modal-body">
+        <!-- Onglet Son -->
+        <div class="tab-panel is-active" data-panel="son">
+          <label class="opt-row">
+            <span class="opt-label">🔆 Garder l'écran allumé</span>
+            <input type="checkbox" id="opt-keepawake" class="switch" />
+          </label>
+          <label class="opt-row">
+            <span class="opt-label">📳 Vibrer à la fin</span>
+            <input type="checkbox" id="opt-vibrate" class="switch" />
+          </label>
+          <label class="opt-row">
+            <span class="opt-label">🔊 Jouer un son à la fin</span>
+            <input type="checkbox" id="opt-sound" class="switch" />
+          </label>
+          <div class="opt-block">
+            <div class="opt-row"><span class="opt-label">🔉 Volume</span><span id="vol-val" class="opt-val">100%</span></div>
+            <input type="range" id="opt-volume" class="slider" min="0" max="100" step="5" value="100" />
+            <p class="opt-hint">Règle le volume de tous les bips de l'app.</p>
+          </div>
+          <div class="opt-block">
+            <div class="opt-row">
+              <span class="opt-label">🎵 Son du bip</span>
+              <button id="preview-sound" class="mini-btn" type="button">▶ Écouter</button>
+            </div>
+            <select id="opt-soundid" class="select"></select>
+          </div>
+        </div>
+
+        <!-- Onglet Notification -->
+        <div class="tab-panel" data-panel="notif">
+          <label class="opt-row">
+            <span class="opt-label">🔔 Notification du temps</span>
+            <input type="checkbox" id="opt-notify" class="switch" />
+          </label>
+          <p class="opt-hint">Affiche le minuteur dans une notification quand l'app est en arrière-plan, et te prévient quand c'est fini. (Aucune notification si l'app est ouverte.)</p>
+          <label class="opt-row">
+            <span class="opt-label">🔊 Son à la notification</span>
+            <input type="checkbox" id="opt-notifysound" class="switch" />
+          </label>
+          <div class="opt-block">
+            <div class="opt-row">
+              <span class="opt-label">🎵 Son de la notif</span>
+              <button id="preview-notifsound" class="mini-btn" type="button">▶ Écouter</button>
+            </div>
+            <select id="opt-notifysoundid" class="select"></select>
+          </div>
+          <p id="notif-status" class="opt-hint"></p>
+        </div>
+
+        <!-- Onglet Timers -->
+        <div class="tab-panel" data-panel="timers">
+          <p class="opt-hint">Tes durées enregistrées (effort & pause). Modifie, ajoute ou supprime.</p>
+          <div id="timers-list" class="timers-list"></div>
+          <button id="timer-add" class="mini-btn mini-btn--wide" type="button">＋ Ajouter un timer</button>
+          <button id="timers-reset" class="link-btn" type="button">Réinitialiser par défaut</button>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
 
   <script src="js/app.js"></script>
 </body>
