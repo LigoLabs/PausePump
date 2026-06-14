@@ -284,12 +284,16 @@ function resumeTimer() {
   rt.lastTick = performance.now();
   setPlayPause(true);
   $('#timer-state').textContent = 'En cours';
+  startKeepAlive();             // garde le moteur audio actif en arrière-plan
+  scheduleAlarm(rt.remaining);  // programme le bip de fin sur l'horloge audio
   rt.intervalId = setInterval(loop, 200);
 }
 function pauseTimer() {
   if (!rt.running) return;
   rt.running = false;
   clearInterval(rt.intervalId);
+  cancelAlarm();
+  stopKeepAlive();
   setPlayPause(false);
   $('#timer-state').textContent = 'En pause';
 }
@@ -299,7 +303,8 @@ function resetTimer() {
   rt.remaining = rt.duration;
   rt.finished = false;
   updateTimerUI();
-  if (!rt.running) $('#timer-state').textContent = 'En pause';
+  if (rt.running) { rt.lastTick = performance.now(); scheduleAlarm(rt.remaining); }
+  else $('#timer-state').textContent = 'En pause';
 }
 
 function backToChoice() {
@@ -348,6 +353,7 @@ function onPhaseComplete() {
   clearInterval(rt.intervalId);
   if (rt.finished) return;
   rt.finished = true;
+  alarmNodes = []; // l'alarme de fin est en train de sonner : on libère les refs sans la couper
 
   const bg = document.hidden;
   playEndFeedback(bg);
@@ -386,7 +392,8 @@ function onPhaseComplete() {
     startPhase(autoNext, autoNext === 'pause' ? session.rest : session.effort);
     return;
   }
-  // On revient à un choix de durée (pause seule, ou étape manuelle)
+  // On revient à un choix de durée (pause seule, ou étape manuelle) → on arrête le moteur
+  stopKeepAlive();
   if (bg) showFinishNotification(); else clearTimerNotification();
   if (manualNext) showManualChoice(manualNext);
   else showPauseChoice();
@@ -423,10 +430,10 @@ function setPlayPause(running) {
 //  Retour sensoriel : son, vibration, notification
 // =====================================================================
 function playEndFeedback(bg) {
-  // En arrière-plan, la page est souvent suspendue par l'OS : c'est la notification
-  // système (son du téléphone + vibration) qui prend le relais. Ici, 1er plan seulement.
+  // Le bip de fin est joué par l'alarme programmée (scheduleAlarm), donc fiable même
+  // en arrière-plan. Ici on ne gère que la vibration au 1er plan (en arrière-plan,
+  // c'est la notification qui vibre).
   if (bg) return;
-  if (settings.sound) playSound(settings.soundId);
   if (settings.vibrate) vibrate([200, 100, 200, 100, 200]);
 }
 
@@ -470,6 +477,73 @@ function playSound(id) {
 
 function vibrate(pattern) {
   if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (_) {} }
+}
+
+// ---- Maintien audio + alarme programmée (son fiable en arrière-plan) ----
+// Sur mobile, le minuteur JS est gelé dès qu'on quitte l'app. Pour qu'un son
+// joue à la fin du timer même en arrière-plan, on garde le moteur audio actif
+// (keep-alive quasi inaudible) et on programme le bip à l'avance sur l'horloge
+// audio (sample-accurate, insensible au gel du thread JS).
+let keepAliveSrc = null;
+function startKeepAlive() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  if (keepAliveSrc) return;
+  const buf = ctx.createBuffer(1, Math.round(ctx.sampleRate * 0.5), ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.0025;
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const g = ctx.createGain();
+  g.gain.value = 0.0006; // quasi inaudible, juste pour garder le pipeline actif
+  src.connect(g).connect(ctx.destination);
+  try { src.start(); } catch (_) {}
+  keepAliveSrc = src;
+}
+function stopKeepAlive() {
+  if (!keepAliveSrc) return;
+  try { keepAliveSrc.stop(); } catch (_) {}
+  try { keepAliveSrc.disconnect(); } catch (_) {}
+  keepAliveSrc = null;
+}
+
+let alarmNodes = [];
+function cancelAlarm() {
+  alarmNodes.forEach((n) => { try { n.stop(); } catch (_) {} try { n.disconnect(); } catch (_) {} });
+  alarmNodes = [];
+}
+// Programme le bip de fin dans `delaySec` secondes (horloge audio).
+function scheduleAlarm(delaySec) {
+  cancelAlarm();
+  if (!settings.sound) return; // « Jouer un son à la fin » désactivé
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const vol = Math.max(0, Math.min(1, settings.volume));
+  if (vol <= 0) return;
+  const def = SOUNDS[settings.soundId] || SOUNDS.triple;
+  const start = ctx.currentTime + Math.max(0, delaySec);
+  def.notes.forEach((n) => {
+    const t = start + n.t;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = def.type || 'sine';
+    if (n.from != null) {
+      osc.frequency.setValueAtTime(n.from, t);
+      osc.frequency.exponentialRampToValueAtTime(n.to, t + n.d);
+    } else {
+      osc.frequency.setValueAtTime(n.f, t);
+    }
+    const peak = 0.6 * vol;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + n.d);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + n.d + 0.05);
+    alarmNodes.push(osc);
+  });
 }
 
 // ---- Wake Lock ----
@@ -534,7 +608,9 @@ async function showFinishNotification() {
     tag: 'pausepump-done',
     body: 'Temps écoulé !',
     renotify: true, requireInteraction: false,
-    silent: !settings.notifySound, // son = tonalité système du téléphone (on/off ici)
+    // Le bip perso (alarme) joue déjà le son → on rend la notif silencieuse pour
+    // éviter le double son. La tonalité système ne sert que si le bip est coupé.
+    silent: settings.sound || !settings.notifySound,
     vibrate: settings.vibrate ? [200, 100, 200] : undefined,
     icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
   });
@@ -661,13 +737,14 @@ function wireSettings() {
     if (settings.keepAwake && rt.running) requestWakeLock(); else if (!settings.keepAwake) releaseWakeLock();
   });
   $('#opt-vibrate').addEventListener('change', (e) => { settings.vibrate = e.target.checked; saveSettings(); if (e.target.checked) vibrate(80); });
-  $('#opt-sound').addEventListener('change', (e) => { settings.sound = e.target.checked; saveSettings(); });
+  $('#opt-sound').addEventListener('change', (e) => { settings.sound = e.target.checked; saveSettings(); if (rt.running) scheduleAlarm(rt.remaining); });
   $('#opt-volume').addEventListener('input', (e) => {
     settings.volume = Number(e.target.value) / 100;
     $('#vol-val').textContent = e.target.value + '%';
     saveSettings();
+    if (rt.running) scheduleAlarm(rt.remaining);
   });
-  $('#opt-soundid').addEventListener('change', (e) => { settings.soundId = e.target.value; saveSettings(); playSound(settings.soundId); });
+  $('#opt-soundid').addEventListener('change', (e) => { settings.soundId = e.target.value; saveSettings(); playSound(settings.soundId); if (rt.running) scheduleAlarm(rt.remaining); });
   $('#preview-sound').addEventListener('click', () => { getAudioCtx(); playSound(settings.soundId); });
 
   $('#opt-notify').addEventListener('change', async (e) => {
