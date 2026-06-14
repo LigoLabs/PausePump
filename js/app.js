@@ -11,12 +11,33 @@ const ENDING_THRESHOLD = 5;            // s : passage au rouge
 const RING_CIRCUMFERENCE = 2 * Math.PI * 100;
 
 // Sons de bip disponibles (générés via Web Audio, sans fichier).
+// Chaque son est synthétisé avec un timbre riche : plusieurs partiels (harmoniques
+// ou inharmoniques pour les cloches/marimbas) + enveloppe percussive naturelle.
+// Inspiré des minuteurs de salle/boxe : net, présent, jamais grêle.
+const TIMBRE = {
+  pure:    [{ r: 1, g: 1 }],
+  soft:    [{ r: 1, g: 1 }, { r: 2, g: 0.16 }],
+  // Partiels inharmoniques d'une cloche réelle → rendu métallique chaud.
+  bell:    [{ r: 1, g: 1 }, { r: 2.01, g: 0.5 }, { r: 2.76, g: 0.33 }, { r: 3.94, g: 0.22 }, { r: 5.42, g: 0.15 }, { r: 8.2, g: 0.08 }],
+  // Marimba/bois : fondamentale + harmoniques impaires qui s'éteignent vite.
+  marimba: [{ r: 1, g: 1 }, { r: 3, g: 0.4 }, { r: 6, g: 0.12 }],
+};
+
 const SOUNDS = {
-  triple: { label: 'Triple bip (défaut)', type: 'sine',     notes: [{ f: 880, t: 0, d: 0.16 }, { f: 880, t: 0.22, d: 0.16 }, { f: 880, t: 0.44, d: 0.16 }] },
-  aigu:   { label: 'Double aigu',          type: 'sine',     notes: [{ f: 1320, t: 0, d: 0.12 }, { f: 1320, t: 0.18, d: 0.12 }] },
-  grave:  { label: 'Grave',                type: 'sine',     notes: [{ f: 392, t: 0, d: 0.22 }, { f: 294, t: 0.27, d: 0.30 }] },
-  cloche: { label: 'Cloche',               type: 'triangle', notes: [{ f: 1568, t: 0, d: 0.65 }] },
-  montee: { label: 'Montée',               type: 'sine',     notes: [{ from: 523, to: 1047, t: 0, d: 0.45 }] },
+  triple:  { label: 'Triple bip',      type: 'square',   timbre: 'soft',    peak: 0.30,
+             notes: [{ f: 880, t: 0, d: 0.13 }, { f: 880, t: 0.18, d: 0.13 }, { f: 1175, t: 0.36, d: 0.22 }] },
+  marimba: { label: 'Marimba',         type: 'sine',     timbre: 'marimba', peak: 0.5,
+             notes: [{ f: 784, t: 0, d: 0.4 }, { f: 1047, t: 0.13, d: 0.55 }] },
+  cloche:  { label: 'Cloche de salle', type: 'sine',     timbre: 'bell',    peak: 0.3,
+             notes: [{ f: 660, t: 0, d: 1.3 }, { f: 660, t: 0.3, d: 1.6 }] },
+  carillon:{ label: 'Carillon',        type: 'sine',     timbre: 'bell',    peak: 0.26,
+             notes: [{ f: 523, t: 0, d: 0.9 }, { f: 659, t: 0.13, d: 0.9 }, { f: 784, t: 0.26, d: 1.3 }] },
+  aigu:    { label: 'Double aigu',     type: 'sine',     timbre: 'soft',    peak: 0.34,
+             notes: [{ f: 1320, t: 0, d: 0.11 }, { f: 1320, t: 0.16, d: 0.13 }] },
+  grave:   { label: 'Grave',           type: 'triangle', timbre: 'soft',    peak: 0.45,
+             notes: [{ f: 392, t: 0, d: 0.22 }, { f: 294, t: 0.27, d: 0.34 }] },
+  montee:  { label: 'Montée',          type: 'sine',     timbre: 'soft',    peak: 0.4,
+             notes: [{ from: 523, to: 1047, t: 0, d: 0.5 }] },
 };
 
 const STORE_SETTINGS = 'pausepump.settings.v1';
@@ -446,6 +467,53 @@ function getAudioCtx() {
   }
   return audioCtx;
 }
+// Bus master : compresseur léger pour un son punchy et sans saturation quand
+// plusieurs partiels se superposent. Créé une fois par contexte audio.
+let masterBus = null;
+function getMaster(ctx) {
+  if (masterBus && masterBus.context === ctx) return masterBus;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -12;
+  comp.knee.value = 18;
+  comp.ratio.value = 4;
+  comp.attack.value = 0.002;
+  comp.release.value = 0.18;
+  const g = ctx.createGain();
+  g.gain.value = 0.95;
+  comp.connect(g).connect(ctx.destination);
+  masterBus = comp;
+  return masterBus;
+}
+
+// Synthétise une note (avec son timbre multi-partiels et son enveloppe
+// percussive) à l'instant absolu `base + n.t`. Renvoie les oscillateurs créés.
+function scheduleVoice(ctx, def, n, base, vol, out) {
+  const partials = TIMBRE[def.timbre] || TIMBRE.pure;
+  const t = base + n.t;
+  const atk = 0.006;
+  const created = [];
+  partials.forEach((p) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = def.type || 'sine';
+    if (n.from != null) {
+      osc.frequency.setValueAtTime(n.from * p.r, t);
+      osc.frequency.exponentialRampToValueAtTime(n.to * p.r, t + n.d);
+    } else {
+      osc.frequency.setValueAtTime(n.f * p.r, t);
+    }
+    const peak = Math.max(0.0002, (def.peak || 0.4) * p.g * vol);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + atk);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + n.d);
+    osc.connect(gain).connect(out);
+    osc.start(t);
+    osc.stop(t + n.d + 0.05);
+    created.push(osc);
+  });
+  return created;
+}
+
 function playSound(id) {
   const ctx = getAudioCtx();
   if (!ctx) return;
@@ -453,26 +521,9 @@ function playSound(id) {
   const vol = Math.max(0, Math.min(1, settings.volume));
   if (vol <= 0) return;
   const def = SOUNDS[id] || SOUNDS.triple;
-  const now = ctx.currentTime;
-  def.notes.forEach((n) => {
-    const t = now + n.t;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = def.type || 'sine';
-    if (n.from != null) {
-      osc.frequency.setValueAtTime(n.from, t);
-      osc.frequency.exponentialRampToValueAtTime(n.to, t + n.d);
-    } else {
-      osc.frequency.setValueAtTime(n.f, t);
-    }
-    const peak = 0.5 * vol;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(peak, t + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + n.d);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + n.d + 0.03);
-  });
+  const out = getMaster(ctx);
+  const base = ctx.currentTime + 0.02;
+  def.notes.forEach((n) => scheduleVoice(ctx, def, n, base, vol, out));
 }
 
 function vibrate(pattern) {
@@ -524,25 +575,9 @@ function scheduleAlarm(delaySec) {
   if (vol <= 0) return;
   const def = SOUNDS[settings.soundId] || SOUNDS.triple;
   const start = ctx.currentTime + Math.max(0, delaySec);
+  const out = getMaster(ctx);
   def.notes.forEach((n) => {
-    const t = start + n.t;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = def.type || 'sine';
-    if (n.from != null) {
-      osc.frequency.setValueAtTime(n.from, t);
-      osc.frequency.exponentialRampToValueAtTime(n.to, t + n.d);
-    } else {
-      osc.frequency.setValueAtTime(n.f, t);
-    }
-    const peak = 0.6 * vol;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(peak, t + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + n.d);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + n.d + 0.05);
-    alarmNodes.push(osc);
+    scheduleVoice(ctx, def, n, start, vol, out).forEach((osc) => alarmNodes.push(osc));
   });
 }
 
