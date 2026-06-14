@@ -610,7 +610,7 @@ function maybeNotify() {
   showTimerNotification();
 }
 async function showTimerNotification() {
-  if (!notifReady()) return;
+  if (!notifReady() || !document.hidden) return; // jamais de notif quand l'app est au premier plan
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return;
   const label = session.mode === 'effort' ? (rt.phase === 'effort' ? 'Effort 💪' : 'Pause 😮‍💨') : 'Pause';
@@ -634,8 +634,15 @@ async function clearAllNotifications() {
   if (!reg) return;
   (await reg.getNotifications()).forEach((n) => n.close());
 }
+// Nettoie tout de suite puis ré-essaie brièvement : une notif peut être affichée
+// par le système juste au moment où l'on revient au premier plan (course).
+function clearAllNotificationsSoon() {
+  clearAllNotifications();
+  setTimeout(clearAllNotifications, 250);
+  setTimeout(clearAllNotifications, 700);
+}
 async function showFinishNotification() {
-  if (!notifReady()) return;
+  if (!notifReady() || !document.hidden) return; // si on est revenu sur l'app entre-temps, pas de notif
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return;
   (await reg.getNotifications({ tag: 'pausepump-timer' })).forEach((n) => n.close());
@@ -654,14 +661,15 @@ async function showFinishNotification() {
 // Quand l'app revient au premier plan : on enlève la notif et on reprend le wake lock
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    clearAllNotifications(); // au retour sur l'app : on enlève toutes ses notifs
+    clearAllNotificationsSoon(); // au retour sur l'app : on enlève toutes ses notifs
     lastNotifSec = -1;
     if (rt.running) requestWakeLock();
   } else if (rt.running) {
     showTimerNotification();
   }
 });
-window.addEventListener('focus', clearAllNotifications);
+window.addEventListener('focus', clearAllNotificationsSoon);
+window.addEventListener('pageshow', clearAllNotificationsSoon);
 
 // =====================================================================
 //  Snackbar
@@ -907,7 +915,7 @@ function init() {
   wireEvents();
   setupInstall();
   showScreen('home');
-  clearAllNotifications(); // ouverture de l'app : on nettoie d'éventuelles notifs restantes
+  clearAllNotificationsSoon(); // ouverture de l'app : on nettoie d'éventuelles notifs restantes
 }
 init();
 
