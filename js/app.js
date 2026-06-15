@@ -57,6 +57,8 @@ const DEFAULT_SETTINGS = {
   notify: true,
   notifySound: true,
   prepCountdown: true, // décompte « 3, 2, 1 » avant l'effort (mode étape par étape)
+  doSetScreen: true,   // écran « Fais ta série » avant chaque pause (mode Pause seule)
+  endScreen: true,     // écran de fin quand toutes les séries sont faites
   timers: DEFAULT_TIMERS.slice(),
 };
 let settings = loadSettings();
@@ -68,6 +70,7 @@ let session = loadSession();
 // ---- État runtime ----
 const rt = {
   seriesRemaining: 0,
+  seriesTotal: 0,      // nombre total de séries de la séance (pour la timeline)
   phase: 'pause',      // 'effort' | 'pause'
   duration: 0,
   remaining: 0,
@@ -208,6 +211,7 @@ function markSelected(gridSel, btn) {
 // =====================================================================
 function startSession() {
   rt.seriesRemaining = selectedSeries;
+  rt.seriesTotal = selectedSeries;
   rt.finished = false;
   updateSeriesReadout();
   showScreen('main');
@@ -265,8 +269,8 @@ function pickDuration(d) {
     session.rest = d;
   }
   saveSession();
-  // Mode Pause seule : on passe par l'écran « Fais ta série » avant la pause.
-  if (session.mode === 'pause') {
+  // Mode Pause seule : écran « Fais ta série » avant la pause (si l'option est active).
+  if (session.mode === 'pause' && settings.doSetScreen) {
     showDoSet();
     return;
   }
@@ -281,7 +285,29 @@ function pickDuration(d) {
 function updateSeriesReadout() {
   $('#series-remaining').textContent = rt.seriesRemaining;
   $('#series-minus').disabled = rt.seriesRemaining <= 0;
+  renderTimeline();
 }
+
+// Timeline des séries : ronds reliés, séries faites pleines, série en cours en relief.
+function renderTimeline() {
+  const el = $('#series-timeline');
+  if (!el) return;
+  const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
+  rt.seriesTotal = total;
+  if (total <= 0) { el.innerHTML = ''; el.hidden = true; return; }
+  const done = Math.min(total, Math.max(0, total - rt.seriesRemaining));
+  let html = '';
+  for (let i = 0; i < total; i++) {
+    if (i > 0) html += `<span class="tl-bar${i <= done ? ' done' : ''}"></span>`;
+    let cls = 'tl-dot';
+    if (i < done) cls += ' done';
+    else if (i === done) cls += ' current';
+    html += `<span class="${cls}"></span>`;
+  }
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
 function adjustSeries(delta) {
   rt.seriesRemaining = Math.max(0, rt.seriesRemaining + delta);
   updateSeriesReadout();
@@ -506,7 +532,8 @@ function advancePhase(bg) {
   stopKeepAlive();
   if (bg) showFinishNotification(); else clearTimerNotification();
   if (manualNext) showManualChoice(manualNext);
-  else showDoSet(); // mode Pause seule : « Fais ta série » avant la prochaine pause
+  else if (settings.doSetScreen) showDoSet(); // mode Pause seule : « Fais ta série »
+  else showPauseChoice();                     // option désactivée : on choisit la durée
 }
 
 // ⏭ Suivante : passe à l'étape suivante (en effort → lance la pause ; en pause →
@@ -523,7 +550,12 @@ function finishSession() {
   stopKeepAlive();
   releaseWakeLock();
   clearAllNotifications();
-  showDone();
+  if (settings.endScreen) {
+    showDone();
+  } else {
+    showScreen('home');
+    showSnackbar('Séance terminée 🎉');
+  }
 }
 
 // Écran de fin : toutes les séries sont faites.
@@ -856,6 +888,8 @@ function applySettingsToUI() {
   $('#opt-notify').checked = settings.notify;
   $('#opt-notifysound').checked = settings.notifySound;
   $('#opt-prepcountdown').checked = settings.prepCountdown;
+  $('#opt-dosetscreen').checked = settings.doSetScreen;
+  $('#opt-endscreen').checked = settings.endScreen;
   updateNotifStatus();
 }
 
@@ -901,6 +935,8 @@ function wireSettings() {
   });
   $('#opt-notifysound').addEventListener('change', (e) => { settings.notifySound = e.target.checked; saveSettings(); });
   $('#opt-prepcountdown').addEventListener('change', (e) => { settings.prepCountdown = e.target.checked; saveSettings(); });
+  $('#opt-dosetscreen').addEventListener('change', (e) => { settings.doSetScreen = e.target.checked; saveSettings(); });
+  $('#opt-endscreen').addEventListener('change', (e) => { settings.endScreen = e.target.checked; saveSettings(); });
 
   $('#timer-add').addEventListener('click', () => {
     settings.timers.push(60);
@@ -985,8 +1021,16 @@ function wireEvents() {
     startSession();
   });
   $('#home-btn').addEventListener('click', () => { pauseTimer(); clearTimerNotification(); releaseWakeLock(); showScreen('home'); });
-  $('#series-minus').addEventListener('click', () => adjustSeries(-1));
-  $('#series-plus').addEventListener('click', () => adjustSeries(1));
+  // Les boutons +/- modifient le total prévu (et pas seulement le restant).
+  $('#series-minus').addEventListener('click', () => {
+    if (rt.seriesRemaining <= 0) return;
+    rt.seriesTotal = Math.max(1, rt.seriesTotal - 1);
+    adjustSeries(-1);
+  });
+  $('#series-plus').addEventListener('click', () => {
+    rt.seriesTotal += 1;
+    adjustSeries(1);
+  });
   $('#opt-effortauto').addEventListener('change', (e) => {
     session.effortAuto = e.target.checked;
     saveSession();

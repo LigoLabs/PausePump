@@ -53,6 +53,9 @@
       <button class="options-btn" type="button" aria-label="Options">⚙</button>
     </header>
 
+    <!-- Timeline des séries (progression) -->
+    <div id="series-timeline" class="timeline" role="img" aria-label="Progression des séries" hidden></div>
+
     <!-- Réglage Effort + Pause -->
     <div id="setup-view" class="view">
       <div class="setup-toggle">
@@ -208,6 +211,16 @@
             <input type="checkbox" id="opt-prepcountdown" class="switch" />
           </label>
           <p class="opt-hint">Affiche un décompte « 3, 2, 1 » pour te préparer avant chaque effort, en mode <b>Effort + Pause à chaque étape</b> (sans enchaînement auto).</p>
+          <label class="opt-row">
+            <span class="opt-label">🏋️ Écran « Fais ta série »</span>
+            <input type="checkbox" id="opt-dosetscreen" class="switch" />
+          </label>
+          <p class="opt-hint">En mode <b>Pause seule</b>, affiche un écran « Fais ta série » avant chaque pause. Décoche pour aller directement à la pause.</p>
+          <label class="opt-row">
+            <span class="opt-label">🎉 Écran de fin de séance</span>
+            <input type="checkbox" id="opt-endscreen" class="switch" />
+          </label>
+          <p class="opt-hint">Affiche un écran récap quand toutes les séries sont faites. Décoche pour revenir directement à l'accueil.</p>
           <hr class="opt-sep" />
           <p class="opt-hint">Tes durées enregistrées (effort & pause). Modifie, ajoute ou supprime.</p>
           <div id="timers-list" class="timers-list"></div>

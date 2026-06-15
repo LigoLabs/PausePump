@@ -187,7 +187,46 @@ body { display: flex; min-height: 100%; }
   padding: 10px 12px;
 }
 /* Sur l'écran de fin, on masque la barre du haut pour un rendu plein écran. */
-#screen-main:has(#done-view.is-active) .topbar { display: none; }
+#screen-main:has(#done-view.is-active) .topbar,
+#screen-main:has(#done-view.is-active) .timeline { display: none; }
+
+/* ---------- Timeline des séries ---------- */
+.timeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 14px 6px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.timeline::-webkit-scrollbar { display: none; }
+.timeline[hidden] { display: none; }
+.tl-dot {
+  flex: 0 0 auto;
+  width: 15px; height: 15px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--track);
+  border: 2px solid var(--track);
+  transition: background .25s ease, border-color .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.tl-dot.done { background: var(--accent); border-color: var(--accent); }
+.tl-dot.current {
+  background: var(--bg-elev);
+  border-color: var(--accent);
+  transform: scale(1.32);
+  box-shadow: 0 0 0 4px rgba(34,211,167,.18);
+}
+.tl-bar {
+  flex: 1 1 auto;
+  min-width: 10px; max-width: 46px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--track);
+  transition: background .25s ease;
+}
+.tl-bar.done { background: var(--accent); }
 .icon-btn {
   flex: 0 0 auto;
   width: 48px; height: 48px;
