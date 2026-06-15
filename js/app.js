@@ -293,7 +293,7 @@ function startPhase(phase, duration) {
 }
 
 // ---- Décompte « 5, 4, 3… » avant de lancer l'effort ----
-const COUNTDOWN_AUTO = 5; // avant le 1er effort en enchaînement auto
+const COUNTDOWN_AUTO = 3; // avant le 1er effort en enchaînement auto
 const COUNTDOWN_PREP = 3; // préparation avant chaque effort (mode étape par étape)
 let countdownTimer = null;
 function cancelCountdown() {
@@ -441,7 +441,7 @@ function updateTimerUI() {
   $('#time-display').classList.toggle('is-ending', ending);
 }
 
-// Fin d'une phase (effort ou pause)
+// Fin d'une phase (effort ou pause) : le temps est écoulé
 function onPhaseComplete() {
   rt.running = false;
   clearInterval(rt.intervalId);
@@ -451,7 +451,12 @@ function onPhaseComplete() {
 
   const bg = document.hidden;
   playEndFeedback(bg);
+  advancePhase(bg);
+}
 
+// Passe à l'étape suivante selon le mode et la phase en cours.
+// effort → pause (même série) ; pause → série suivante (−1) ou fin.
+function advancePhase(bg) {
   let sessionEnd = false;
   let autoNext = null;    // enchaînement automatique (effort auto)
   let manualNext = null;  // étape suivante à choisir à la main
@@ -493,19 +498,13 @@ function onPhaseComplete() {
   else showPauseChoice();
 }
 
-// ⏭ Série suivante : coupe le timer en cours et fait −1 série
+// ⏭ Suivante : passe à l'étape suivante (en effort → lance la pause ; en pause →
+// série suivante). Coupe le timer/alarme en cours et applique la même logique
+// que la fin naturelle d'une phase.
 function skipSeries() {
-  pauseTimer();
-  rt.finished = true;
-  clearTimerNotification();
-  adjustSeries(-1);
-  if (rt.seriesRemaining <= 0) { finishSession(); return; }
-  if (session.mode === 'effort') {
-    if (session.effortAuto) startPhase('effort', session.effort);
-    else showManualChoice('effort');
-  } else {
-    showPauseChoice();
-  }
+  pauseTimer();        // stoppe le minuteur + annule l'alarme programmée
+  rt.finished = true;  // évite tout double-déclenchement
+  advancePhase(false); // au 1er plan : pas de notif de fin, juste l'enchaînement
 }
 
 function finishSession() {
