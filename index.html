@@ -81,10 +81,17 @@
 
     <!-- Étape « Fais ta série » (mode Pause seule) : avant chaque pause -->
     <div id="doset-view" class="view doset-view">
-      <div class="doset-emoji" aria-hidden="true">🏋️</div>
-      <h2 class="doset-title">Fais ta série 💪</h2>
+      <div class="doset-stage" aria-hidden="true">
+        <span class="doset-glow"></span>
+        <span class="doset-ring"></span>
+        <span class="doset-ring"></span>
+        <span class="doset-ring"></span>
+        <span class="doset-core"><span class="doset-emoji">🏋️</span></span>
+      </div>
+      <div id="doset-count" class="doset-count">Série 1 / 1</div>
+      <h2 id="doset-title" class="doset-title">Fais ta série</h2>
       <p class="doset-sub">Lance ta pause quand tu as fini.</p>
-      <button id="doset-done" class="btn-primary" type="button">✅ J'ai fait ma série</button>
+      <button id="doset-done" class="btn-primary" type="button">J'ai fait ma série</button>
     </div>
 
     <!-- Décompte -->
@@ -155,18 +162,37 @@
       </header>
 
       <nav class="tabs" role="tablist">
-        <button class="tab is-active" data-tab="son" role="tab" type="button">🔊 Son</button>
-        <button class="tab" data-tab="notif" role="tab" type="button">🔔 Notif</button>
+        <button class="tab is-active" data-tab="general" role="tab" type="button">⚙️ Général</button>
+        <button class="tab" data-tab="son" role="tab" type="button">🔊 Son</button>
         <button class="tab" data-tab="timers" role="tab" type="button">⏱️ Timers</button>
       </nav>
 
       <div class="modal-body">
-        <!-- Onglet Son -->
-        <div class="tab-panel is-active" data-panel="son">
+        <!-- Onglet Général -->
+        <div class="tab-panel is-active" data-panel="general">
           <label class="opt-row">
             <span class="opt-label">🔆 Garder l'écran allumé</span>
             <input type="checkbox" id="opt-keepawake" class="switch" />
           </label>
+          <label class="opt-row">
+            <span class="opt-label">🏁 Décompte avant l'effort</span>
+            <input type="checkbox" id="opt-prepcountdown" class="switch" />
+          </label>
+          <p class="opt-hint">Affiche un décompte « 3, 2, 1 » pour te préparer avant chaque effort, en mode <b>Effort + Pause à chaque étape</b> (sans enchaînement auto).</p>
+          <label class="opt-row">
+            <span class="opt-label">🏋️ Écran « Fais ta série »</span>
+            <input type="checkbox" id="opt-dosetscreen" class="switch" />
+          </label>
+          <p class="opt-hint">En mode <b>Pause seule</b>, affiche un écran « Fais ta série » avant chaque pause. Décoche pour aller directement à la pause.</p>
+          <label class="opt-row">
+            <span class="opt-label">🎉 Écran de fin de séance</span>
+            <input type="checkbox" id="opt-endscreen" class="switch" />
+          </label>
+          <p class="opt-hint">Affiche un écran récap quand toutes les séries sont faites. Décoche pour revenir directement à l'accueil.</p>
+        </div>
+
+        <!-- Onglet Son -->
+        <div class="tab-panel" data-panel="son">
           <label class="opt-row">
             <span class="opt-label">📳 Vibrer à la fin</span>
             <input type="checkbox" id="opt-vibrate" class="switch" />
@@ -187,10 +213,9 @@
             </div>
             <select id="opt-soundid" class="select"></select>
           </div>
-        </div>
 
-        <!-- Onglet Notification -->
-        <div class="tab-panel" data-panel="notif">
+          <hr class="opt-sep" />
+
           <label class="opt-row">
             <span class="opt-label">🔔 Notification du temps</span>
             <input type="checkbox" id="opt-notify" class="switch" />
@@ -200,28 +225,12 @@
             <span class="opt-label">🔊 Son à la notification</span>
             <input type="checkbox" id="opt-notifysound" class="switch" />
           </label>
-          <p class="opt-hint">✅ « <b>Jouer un son à la fin</b> » (onglet Son) sonne maintenant <b>même quand tu as changé d'appli</b> : l'app garde le moteur audio actif pendant le décompte. Fiable sur <b>Android</b>. Sur <b>iPhone</b>, iOS coupe l'audio quand l'écran se verrouille — garde l'app ouverte. « Son à la notification » est un repli : utilise la sonnerie du téléphone si tu coupes le bip perso (sa tonalité dépend de tes réglages système).</p>
+          <p class="opt-hint">✅ « <b>Jouer un son à la fin</b> » sonne <b>même quand tu as changé d'appli</b> : l'app garde le moteur audio actif pendant le décompte. Fiable sur <b>Android</b>. Sur <b>iPhone</b>, iOS coupe l'audio quand l'écran se verrouille — garde l'app ouverte. « Son à la notification » est un repli : utilise la sonnerie du téléphone si tu coupes le bip perso (sa tonalité dépend de tes réglages système).</p>
           <p id="notif-status" class="opt-hint"></p>
         </div>
 
         <!-- Onglet Timers -->
         <div class="tab-panel" data-panel="timers">
-          <label class="opt-row">
-            <span class="opt-label">🏁 Décompte avant l'effort</span>
-            <input type="checkbox" id="opt-prepcountdown" class="switch" />
-          </label>
-          <p class="opt-hint">Affiche un décompte « 3, 2, 1 » pour te préparer avant chaque effort, en mode <b>Effort + Pause à chaque étape</b> (sans enchaînement auto).</p>
-          <label class="opt-row">
-            <span class="opt-label">🏋️ Écran « Fais ta série »</span>
-            <input type="checkbox" id="opt-dosetscreen" class="switch" />
-          </label>
-          <p class="opt-hint">En mode <b>Pause seule</b>, affiche un écran « Fais ta série » avant chaque pause. Décoche pour aller directement à la pause.</p>
-          <label class="opt-row">
-            <span class="opt-label">🎉 Écran de fin de séance</span>
-            <input type="checkbox" id="opt-endscreen" class="switch" />
-          </label>
-          <p class="opt-hint">Affiche un écran récap quand toutes les séries sont faites. Décoche pour revenir directement à l'accueil.</p>
-          <hr class="opt-sep" />
           <p class="opt-hint">Tes durées enregistrées (effort & pause). Modifie, ajoute ou supprime.</p>
           <div id="timers-list" class="timers-list"></div>
           <button id="timer-add" class="mini-btn mini-btn--wide" type="button">＋ Ajouter un timer</button>

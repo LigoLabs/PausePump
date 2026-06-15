@@ -256,6 +256,11 @@ function showManualChoice(phase) {
 function showDoSet() {
   stopKeepAlive();
   clearTimerNotification();
+  const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
+  const current = Math.min(total, total - rt.seriesRemaining + 1); // la série qu'on va faire
+  const ord = current === 1 ? '1re' : current + 'e';
+  $('#doset-title').textContent = `Fais ta ${ord} série`;
+  $('#doset-count').textContent = `Série ${current} / ${total}`;
   showView('doset');
 }
 
