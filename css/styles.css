@@ -46,8 +46,13 @@ body { display: flex; min-height: 100%; }
   display: none;
   flex-direction: column;
   width: 100%;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  /* svh = hauteur « petite » STABLE : ne suit pas la barre d'adresse mobile qui
+     se rétracte (contrairement à dvh), donc le bouton du bas ne « glisse » plus
+     vers le bas au rechargement / après une mise à jour. Fallback vh. */
+  min-height: 100vh;
+  min-height: 100svh;
+  max-height: 100vh;
+  max-height: 100svh;
   overflow-y: auto;
   padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bottom) + 20px);
   transition: padding-top .35s cubic-bezier(.2,.85,.25,1);
