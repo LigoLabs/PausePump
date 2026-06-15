@@ -196,7 +196,8 @@ body { display: flex; min-height: 100%; }
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin: 14px 6px 2px;
+  margin: 8px 2px 2px;
+  padding: 10px 8px; /* de l'air pour le halo / l'agrandissement du rond en cours */
   overflow-x: auto;
   scrollbar-width: none;
 }
