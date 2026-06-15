@@ -71,6 +71,9 @@ let session = loadSession();
 const rt = {
   seriesRemaining: 0,
   seriesTotal: 0,      // nombre total de séries de la séance (pour la timeline)
+  tlDots: 0,           // séries validées (points pleins de la timeline)
+  tlBars: 0,           // pauses terminées (barres pleines de la timeline)
+  tlFrac: 0,           // remplissage 0..1 de la barre en cours (pendant la pause)
   phase: 'pause',      // 'effort' | 'pause'
   duration: 0,
   remaining: 0,
@@ -212,6 +215,9 @@ function markSelected(gridSel, btn) {
 function startSession() {
   rt.seriesRemaining = selectedSeries;
   rt.seriesTotal = selectedSeries;
+  rt.tlDots = 0;
+  rt.tlBars = 0;
+  rt.tlFrac = 0;
   rt.finished = false;
   updateSeriesReadout();
   showScreen('main');
@@ -275,6 +281,10 @@ function pickDuration(d) {
     session.rest = d;
   }
   saveSession();
+  // Pause seule sans écran « Fais ta série » : la série est validée au choix de durée.
+  if (session.mode === 'pause' && !settings.doSetScreen) {
+    rt.tlDots = Math.min(rt.seriesTotal, (rt.tlDots || 0) + 1);
+  }
   // Mode étape par étape : petit décompte de préparation avant de lancer l'effort.
   if (rt.pickPhase === 'effort' && session.mode === 'effort' && !session.effortAuto && settings.prepCountdown) {
     runCountdown(COUNTDOWN_PREP, () => startPhase('effort', d));
@@ -289,24 +299,58 @@ function updateSeriesReadout() {
   renderTimeline();
 }
 
-// Timeline des séries : ronds reliés, séries faites pleines, série en cours en relief.
+// Timeline des séries : ronds reliés. (Re)construit la structure quand le nombre
+// change, sinon met juste à jour le remplissage (pour des transitions fluides).
 function renderTimeline() {
   const el = $('#series-timeline');
   if (!el) return;
   const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
   rt.seriesTotal = total;
   if (total <= 0) { el.innerHTML = ''; el.hidden = true; return; }
-  const done = Math.min(total, Math.max(0, total - rt.seriesRemaining));
-  let html = '';
-  for (let i = 0; i < total; i++) {
-    if (i > 0) html += `<span class="tl-bar${i <= done ? ' done' : ''}"></span>`;
-    let cls = 'tl-dot';
-    if (i < done) cls += ' done';
-    else if (i === done) cls += ' current';
-    html += `<span class="${cls}"></span>`;
-  }
-  el.innerHTML = html;
   el.hidden = false;
+  if (el.querySelectorAll('.tl-dot').length !== total) {
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      if (i > 0) html += '<span class="tl-bar"><span class="tl-bar-fill"></span></span>';
+      html += '<span class="tl-dot"></span>';
+    }
+    el.innerHTML = html;
+  }
+  updateTimelineProgress();
+}
+
+// Calcule le remplissage de la timeline selon le mode.
+function timelineState() {
+  const total = rt.seriesTotal;
+  if (session.mode === 'pause') {
+    // Le point se remplit quand la série est validée ; la barre vers le point
+    // suivant se remplit progressivement pendant le timer de pause.
+    const dots = Math.min(total, rt.tlDots || 0);
+    const bars = Math.min(total, rt.tlBars || 0);
+    // Barre en cours = pause commencée (série validée) mais pas encore terminée.
+    const restActive = (rt.tlBars || 0) < (rt.tlDots || 0);
+    const frac = restActive ? Math.max(0, Math.min(1, rt.tlFrac || 0)) : 0;
+    return { dots, bars, frac, activeBar: restActive ? bars : -1 };
+  }
+  // Effort + Pause : un point par série terminée.
+  const done = Math.min(total, Math.max(0, total - rt.seriesRemaining));
+  return { dots: done, bars: done, frac: 0, activeBar: -1 };
+}
+
+function updateTimelineProgress() {
+  const el = $('#series-timeline');
+  if (!el || el.hidden) return;
+  const { dots, bars, frac, activeBar } = timelineState();
+  el.querySelectorAll('.tl-dot').forEach((d, i) => {
+    d.classList.toggle('done', i < dots);
+    d.classList.toggle('current', i === dots);
+  });
+  el.querySelectorAll('.tl-bar').forEach((b, i) => {
+    const fill = b.firstElementChild;
+    if (!fill) return;
+    const w = (i < bars) ? 1 : (i === activeBar ? frac : 0);
+    fill.style.width = (w * 100) + '%';
+  });
 }
 
 function adjustSeries(delta) {
@@ -477,6 +521,11 @@ function updateTimerUI() {
   const ending = secs <= ENDING_THRESHOLD && rt.remaining > 0;
   ring.classList.toggle('is-ending', ending);
   $('#time-display').classList.toggle('is-ending', ending);
+  // Pause seule : la barre de la timeline se remplit au rythme du timer.
+  if (session.mode === 'pause') {
+    rt.tlFrac = 1 - frac;
+    updateTimelineProgress();
+  }
 }
 
 // Fin d'une phase (effort ou pause) : le temps est écoulé
@@ -500,6 +549,8 @@ function advancePhase(bg) {
   let manualNext = null;  // étape suivante à choisir à la main
 
   if (session.mode === 'pause') {
+    rt.tlBars = rt.tlDots; // la pause est finie → la barre en cours devient pleine
+    rt.tlFrac = 0;
     adjustSeries(-1);
     sessionEnd = rt.seriesRemaining <= 0;
   } else if (session.effortAuto) { // Effort + Pause, enchaîné
@@ -1052,7 +1103,12 @@ function wireEvents() {
   $('#reset-btn').addEventListener('click', resetTimer);
   $('#skip-btn').addEventListener('click', skipSeries);
   $('#change-btn').addEventListener('click', backToChoice);
-  $('#doset-done').addEventListener('click', () => { getAudioCtx(); showPauseChoice(); });
+  $('#doset-done').addEventListener('click', () => {
+    getAudioCtx();
+    rt.tlDots = Math.min(rt.seriesTotal, (rt.tlDots || 0) + 1); // série validée → point plein
+    updateTimelineProgress();
+    showPauseChoice();
+  });
   $('#done-restart').addEventListener('click', () => { getAudioCtx(); startSession(); });
   $('#done-home').addEventListener('click', () => { showScreen('home'); });
   wireSettings();
