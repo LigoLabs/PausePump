@@ -794,14 +794,16 @@ async function showTimerNotification() {
   if (!reg) return;
   if (!document.hidden) return; // l'app est peut-être redevenue visible pendant l'await
   const label = session.mode === 'effort' ? (rt.phase === 'effort' ? 'Effort 💪' : 'Pause 😮‍💨') : 'Pause';
-  // Pas de décompte affiché : en arrière-plan le JS est gelé, un chrono figé
-  // donnerait l'impression d'une notif « bloquée ». On reste sur un état clair,
-  // non-collant (requireInteraction:false) pour qu'elle se ferme sans souci.
+  // En arrière-plan le JS est gelé : un décompte qui tourne est impossible. On
+  // affiche plutôt l'HEURE DE FIN (absolue) — toujours juste, jamais « bloquée ».
+  const endMs = Date.now() + Math.max(0, rt.remaining) * 1000;
+  const endClock = new Date(endMs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   reg.showNotification('PausePump ⏱️', {
     tag: 'pausepump-timer',
-    body: `${label} en cours • ${rt.seriesRemaining} série(s) restante(s)`,
+    body: `${label} • fin à ${endClock} • ${rt.seriesRemaining} série(s)`,
     silent: true, renotify: false, requireInteraction: false,
-    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+    timestamp: endMs,
+    icon: 'icons/icon-192.png', badge: 'icons/badge-96.png',
   });
 }
 async function clearTimerNotification() {
@@ -843,7 +845,7 @@ async function showFinishNotification() {
     // éviter le double son. La tonalité système ne sert que si le bip est coupé.
     silent: settings.sound || !settings.notifySound,
     vibrate: settings.vibrate ? [200, 100, 200] : undefined,
-    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+    icon: 'icons/icon-192.png', badge: 'icons/badge-96.png',
   });
 }
 
