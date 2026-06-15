@@ -367,7 +367,7 @@ function startPhase(phase, duration) {
   rt.duration = duration;
   rt.remaining = duration;
   rt.finished = false;
-  timerNotifShown = false;
+  lastNotifSec = -1;
   updatePhaseUI();
   showView('timer');
   updateTimerUI();
@@ -781,11 +781,12 @@ async function ensureNotifPermission() {
 function notifReady() {
   return ('Notification' in window) && Notification.permission === 'granted' && navigator.serviceWorker;
 }
-let timerNotifShown = false;
+let lastNotifSec = -1;
 function maybeNotify() {
   if (!settings.notify || !document.hidden || !notifReady()) return;
-  if (timerNotifShown) return; // une seule notif « en cours » par passage en arrière-plan
-  timerNotifShown = true;
+  const sec = Math.ceil(rt.remaining);
+  if (sec === lastNotifSec) return; // on ne ré-affiche que quand la seconde change
+  lastNotifSec = sec;
   showTimerNotification();
 }
 async function showTimerNotification() {
@@ -794,15 +795,14 @@ async function showTimerNotification() {
   if (!reg) return;
   if (!document.hidden) return; // l'app est peut-être redevenue visible pendant l'await
   const label = session.mode === 'effort' ? (rt.phase === 'effort' ? 'Effort 💪' : 'Pause 😮‍💨') : 'Pause';
-  // En arrière-plan le JS est gelé : un décompte qui tourne est impossible. On
-  // affiche plutôt l'HEURE DE FIN (absolue) — toujours juste, jamais « bloquée ».
-  const endMs = Date.now() + Math.max(0, rt.remaining) * 1000;
-  const endClock = new Date(endMs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  // Décompte affiché : on ré-affiche la notif chaque seconde (mise à jour en place).
+  // Le moteur audio (keep-alive) garde la page active en arrière-plan sur Android.
+  const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
+  const serie = Math.min(total, total - rt.seriesRemaining + 1);
   reg.showNotification('PausePump ⏱️', {
     tag: 'pausepump-timer',
-    body: `${label} • fin à ${endClock} • ${rt.seriesRemaining} série(s)`,
+    body: `${label} • ${formatTime(Math.ceil(rt.remaining))} • série ${serie}/${total}`,
     silent: true, renotify: false, requireInteraction: false,
-    timestamp: endMs,
     icon: 'icons/icon-192.png', badge: 'icons/badge-96.png',
   });
 }
@@ -853,10 +853,10 @@ async function showFinishNotification() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     clearAllNotificationsSoon(); // au retour sur l'app : on enlève toutes ses notifs
-    timerNotifShown = false;
+    lastNotifSec = -1;
     if (rt.running) requestWakeLock();
   } else if (rt.running) {
-    timerNotifShown = true;
+    lastNotifSec = -1;
     showTimerNotification();
   }
 });
