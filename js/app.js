@@ -226,7 +226,9 @@ function startSession() {
     showView('setup');
   } else {
     buildAllGrids();
-    showPauseChoice();
+    // Pause seule : on commence par « Fais ta série » (si activé), puis le choix de durée.
+    if (settings.doSetScreen) showDoSet();
+    else showPauseChoice();
   }
   saveSession();
 }
@@ -273,11 +275,6 @@ function pickDuration(d) {
     session.rest = d;
   }
   saveSession();
-  // Mode Pause seule : écran « Fais ta série » avant la pause (si l'option est active).
-  if (session.mode === 'pause' && settings.doSetScreen) {
-    showDoSet();
-    return;
-  }
   // Mode étape par étape : petit décompte de préparation avant de lancer l'effort.
   if (rt.pickPhase === 'effort' && session.mode === 'effort' && !session.effortAuto && settings.prepCountdown) {
     runCountdown(COUNTDOWN_PREP, () => startPhase('effort', d));
@@ -1055,7 +1052,7 @@ function wireEvents() {
   $('#reset-btn').addEventListener('click', resetTimer);
   $('#skip-btn').addEventListener('click', skipSeries);
   $('#change-btn').addEventListener('click', backToChoice);
-  $('#doset-done').addEventListener('click', () => { getAudioCtx(); startPhase('pause', session.pause); });
+  $('#doset-done').addEventListener('click', () => { getAudioCtx(); showPauseChoice(); });
   $('#done-restart').addEventListener('click', () => { getAudioCtx(); startSession(); });
   $('#done-home').addEventListener('click', () => { showScreen('home'); });
   wireSettings();
