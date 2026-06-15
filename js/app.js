@@ -265,7 +265,7 @@ function showDoSet() {
   stopKeepAlive();
   clearTimerNotification();
   const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
-  const current = Math.min(total, total - rt.seriesRemaining + 1); // la série qu'on va faire
+  const current = Math.min(total, (rt.tlDots || 0) + 1); // la série qu'on va faire
   const ord = current === 1 ? '1re' : current + 'e';
   $('#doset-title').textContent = `Fais ta ${ord} série`;
   showView('doset');
@@ -284,6 +284,7 @@ function pickDuration(d) {
   // Pause seule sans écran « Fais ta série » : la série est validée au choix de durée.
   if (session.mode === 'pause' && !settings.doSetScreen) {
     rt.tlDots = Math.min(rt.seriesTotal, (rt.tlDots || 0) + 1);
+    adjustSeries(-1);
   }
   // Mode étape par étape : petit décompte de préparation avant de lancer l'effort.
   if (rt.pickPhase === 'effort' && session.mode === 'effort' && !session.effortAuto && settings.prepCountdown) {
@@ -549,9 +550,10 @@ function advancePhase(bg) {
   let manualNext = null;  // étape suivante à choisir à la main
 
   if (session.mode === 'pause') {
+    // Le compteur a déjà été décrémenté à la validation de la série (pas ici).
     rt.tlBars = rt.tlDots; // la pause est finie → la barre en cours devient pleine
     rt.tlFrac = 0;
-    adjustSeries(-1);
+    updateTimelineProgress();
     sessionEnd = rt.seriesRemaining <= 0;
   } else if (session.effortAuto) { // Effort + Pause, enchaîné
     if (rt.phase === 'effort') {
@@ -1106,7 +1108,7 @@ function wireEvents() {
   $('#doset-done').addEventListener('click', () => {
     getAudioCtx();
     rt.tlDots = Math.min(rt.seriesTotal, (rt.tlDots || 0) + 1); // série validée → point plein
-    updateTimelineProgress();
+    adjustSeries(-1);                                            // compteur −1 dès la validation
     showPauseChoice();
   });
   $('#done-restart').addEventListener('click', () => { getAudioCtx(); startSession(); });
