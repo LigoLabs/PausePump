@@ -110,6 +110,13 @@
   <!-- Snackbar (notification brève, non-bloquante) -->
   <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>
 
+  <!-- Décompte avant le départ (mode enchaînement auto) -->
+  <div id="countdown-overlay" class="countdown-overlay" role="alertdialog" aria-label="Décompte avant le départ" hidden>
+    <p class="countdown-label">Prépare-toi 💪</p>
+    <div id="countdown-num" class="countdown-num">5</div>
+    <p class="countdown-hint">L'effort démarre…</p>
+  </div>
+
   <!-- Bandeau de mise à jour PWA -->
   <div id="update-banner" class="update-banner" role="alert" hidden>
     <span class="update-dot" aria-hidden="true"></span>

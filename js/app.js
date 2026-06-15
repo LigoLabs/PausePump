@@ -286,6 +286,71 @@ function startPhase(phase, duration) {
   if (settings.keepAwake) requestWakeLock();
 }
 
+// ---- Décompte « 5, 4, 3… » avant de lancer l'effort (enchaînement auto) ----
+const COUNTDOWN_FROM = 5;
+let countdownTimer = null;
+function cancelCountdown() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  const overlay = $('#countdown-overlay');
+  if (overlay) { overlay.classList.remove('show'); overlay.hidden = true; }
+}
+// Petit bip de décompte (réutilise le moteur audio). `go` = tonalité de départ.
+function countdownBeep(go) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const vol = Math.max(0, Math.min(1, settings.volume));
+  if (vol <= 0) return;
+  const def = go
+    ? { type: 'sine', timbre: 'soft', peak: 0.55 }
+    : { type: 'sine', timbre: 'soft', peak: 0.32 };
+  const note = go ? { from: 880, to: 1320, t: 0, d: 0.35 } : { f: 740, t: 0, d: 0.12 };
+  scheduleVoice(ctx, def, note, ctx.currentTime + 0.01, vol, getMaster(ctx));
+}
+function startEffortWithCountdown() {
+  getAudioCtx(); // débloque l'audio dans le geste utilisateur
+  const overlay = $('#countdown-overlay');
+  const numEl = $('#countdown-num');
+  let launched = false;
+  const launch = () => {
+    if (launched) return;
+    launched = true;
+    cancelCountdown();
+    startPhase('effort', selectedEffort);
+  };
+  if (!overlay || !numEl) { launch(); return; }
+
+  let n = COUNTDOWN_FROM;
+  const render = (txt, go) => {
+    numEl.textContent = txt;
+    numEl.classList.toggle('go', !!go);
+    numEl.classList.remove('pop'); void numEl.offsetWidth; numEl.classList.add('pop');
+  };
+
+  overlay.hidden = false;
+  requestAnimationFrame(() => overlay.classList.add('show'));
+  overlay.onclick = launch; // tap → on démarre tout de suite
+
+  render(n, false);
+  countdownBeep(false);
+  if (settings.vibrate) vibrate(30);
+
+  countdownTimer = setInterval(() => {
+    n -= 1;
+    if (n <= 0) {
+      clearInterval(countdownTimer); countdownTimer = null;
+      render('GO !', true);
+      countdownBeep(true);
+      if (settings.vibrate) vibrate(90);
+      setTimeout(launch, 550);
+      return;
+    }
+    render(n, false);
+    countdownBeep(false);
+    if (settings.vibrate) vibrate(30);
+  }, 1000);
+}
+
 function updatePhaseUI() {
   const badge = $('#phase-badge');
   const ring = $('#ring-progress');
@@ -900,7 +965,7 @@ function wireEvents() {
     if (session.effortAuto) {
       if (!selectedEffort || !selectedRest) { showSnackbar('Choisis effort et pause'); return; }
       saveSession();
-      startPhase('effort', selectedEffort);
+      startEffortWithCountdown(); // décompte « 5, 4, 3… » avant de lancer l'effort
     } else {
       // Mode à chaque étape : on commence par choisir la durée d'effort
       saveSession();
