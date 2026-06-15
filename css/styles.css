@@ -220,6 +220,25 @@ body { display: flex; min-height: 100%; }
 .view-title { font-size: 1.25rem; font-weight: 700; margin: 8px 0 16px; color: var(--text-dim); }
 .view-title--rest { margin-top: 22px; }
 
+/* ---------- Écran « Fais ta série » (mode Pause seule) ---------- */
+.doset-view { gap: 4px; text-align: center; padding: 0 6px; }
+.doset-emoji {
+  font-size: clamp(4.5rem, 26vw, 7rem);
+  line-height: 1;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,.4));
+  animation: doset-bounce 1.5s ease-in-out infinite;
+}
+@keyframes doset-bounce {
+  0%, 100% { transform: translateY(0) rotate(-7deg); }
+  50%      { transform: translateY(-16px) rotate(7deg); }
+}
+.doset-title { font-size: 1.7rem; font-weight: 800; margin: 14px 0 2px; color: var(--text); }
+.doset-sub { color: var(--text-dim); margin: 0; font-size: 1rem; }
+.doset-view .btn-primary { margin-top: 26px; width: 100%; max-width: 360px; }
+@media (prefers-reduced-motion: reduce) {
+  .doset-emoji { animation: none; }
+}
+
 /* Toggle auto/manuel sur l'écran de réglage Effort+Pause */
 .setup-toggle {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

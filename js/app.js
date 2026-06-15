@@ -85,7 +85,7 @@ let selectedRest = 0;
 // ---- DOM ----
 const $ = (s) => document.querySelector(s);
 const screens = { home: $('#screen-home'), main: $('#screen-main') };
-const views = { setup: $('#setup-view'), duration: $('#duration-view'), timer: $('#timer-view') };
+const views = { setup: $('#setup-view'), duration: $('#duration-view'), doset: $('#doset-view'), timer: $('#timer-view') };
 
 // =====================================================================
 //  Persistance
@@ -248,6 +248,12 @@ function showManualChoice(phase) {
     : '😮‍💨 Pause — choisis la durée';
   showView('duration');
 }
+// Mode Pause seule : écran « Fais ta série » avant de lancer la pause.
+function showDoSet() {
+  stopKeepAlive();
+  clearTimerNotification();
+  showView('doset');
+}
 
 // Tap sur une durée dans la grille principale
 function pickDuration(d) {
@@ -259,6 +265,11 @@ function pickDuration(d) {
     session.rest = d;
   }
   saveSession();
+  // Mode Pause seule : on passe par l'écran « Fais ta série » avant la pause.
+  if (session.mode === 'pause') {
+    showDoSet();
+    return;
+  }
   // Mode étape par étape : petit décompte de préparation avant de lancer l'effort.
   if (rt.pickPhase === 'effort' && session.mode === 'effort' && !session.effortAuto && settings.prepCountdown) {
     runCountdown(COUNTDOWN_PREP, () => startPhase('effort', d));
@@ -495,7 +506,7 @@ function advancePhase(bg) {
   stopKeepAlive();
   if (bg) showFinishNotification(); else clearTimerNotification();
   if (manualNext) showManualChoice(manualNext);
-  else showPauseChoice();
+  else showDoSet(); // mode Pause seule : « Fais ta série » avant la prochaine pause
 }
 
 // ⏭ Suivante : passe à l'étape suivante (en effort → lance la pause ; en pause →
@@ -985,6 +996,7 @@ function wireEvents() {
   $('#reset-btn').addEventListener('click', resetTimer);
   $('#skip-btn').addEventListener('click', skipSeries);
   $('#change-btn').addEventListener('click', backToChoice);
+  $('#doset-done').addEventListener('click', () => { getAudioCtx(); startPhase('pause', session.pause); });
   wireSettings();
 }
 
