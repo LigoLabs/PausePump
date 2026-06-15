@@ -50,8 +50,12 @@ body { display: flex; min-height: 100%; }
   max-height: 100dvh;
   overflow-y: auto;
   padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bottom) + 20px);
+  transition: padding-top .35s cubic-bezier(.2,.85,.25,1);
 }
 .screen.is-active { display: flex; }
+/* Bandeau de mise à jour visible → on réserve la place en haut. Le contenu (titre,
+   en-tête) descend, mais le bouton du bas reste ancré en bas et ne bouge pas. */
+.has-update .screen.is-active { padding-top: calc(var(--safe-top) + 16px + 62px); }
 
 /* ---------- Options button (en flux, pas en position fixe) ---------- */
 .options-btn {
@@ -322,8 +326,8 @@ body { display: flex; min-height: 100%; }
 .update-banner {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 16px);
-  transform: translateX(-50%) translateY(140%);
+  top: calc(var(--safe-top) + 12px);
+  transform: translateX(-50%) translateY(-180%);
   z-index: 80;
   display: flex;
   align-items: center;

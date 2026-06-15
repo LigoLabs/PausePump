@@ -1011,8 +1011,11 @@ let swRegistration = null;
 
 function showUpdateBanner(onApply) {
   const banner = $('#update-banner');
-  if (!banner || !banner.hidden === false) { /* déjà visible */ }
+  if (!banner) return;
   banner.hidden = false;
+  // Réserve la place en haut (le bandeau est ancré en haut) : le contenu descend
+  // un peu mais le bouton du bas, ancré en bas de l'écran, ne bouge pas.
+  document.body.classList.add('has-update');
   requestAnimationFrame(() => banner.classList.add('show'));
   $('#update-apply').onclick = () => {
     $('#update-apply').disabled = true;
