@@ -468,6 +468,7 @@ body { display: flex; min-height: 100%; }
 .opt-block { padding: 8px 2px 12px; border-top: 1px solid rgba(255,255,255,.05); }
 .opt-block .opt-row { padding: 8px 0; }
 .opt-hint { font-size: .82rem; color: var(--text-dim); margin: 4px 2px 10px; line-height: 1.4; }
+.opt-sep { border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 14px 0; }
 
 /* Switch */
 .switch { appearance: none; -webkit-appearance: none; position: relative; width: 52px; height: 30px; background: var(--track); border-radius: 999px; cursor: pointer; transition: background .2s ease; flex: 0 0 auto; }
