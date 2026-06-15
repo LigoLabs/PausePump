@@ -260,7 +260,6 @@ function showDoSet() {
   const current = Math.min(total, total - rt.seriesRemaining + 1); // la série qu'on va faire
   const ord = current === 1 ? '1re' : current + 'e';
   $('#doset-title').textContent = `Fais ta ${ord} série`;
-  $('#doset-count').textContent = `Série ${current} / ${total}`;
   showView('doset');
 }
 

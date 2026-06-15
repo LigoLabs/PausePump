@@ -310,10 +310,11 @@ body { display: flex; min-height: 100%; }
   box-shadow: 0 0 30px rgba(34,211,167,.45), inset 0 2px 12px rgba(255,255,255,.06);
   animation: doset-breathe 2.6s ease-in-out infinite;
 }
-.doset-emoji {
-  font-size: clamp(2.8rem, 17vw, 4.4rem);
-  line-height: 1;
-  filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
+.doset-icon {
+  width: 50%;
+  height: 50%;
+  color: var(--accent);
+  filter: drop-shadow(0 4px 12px rgba(34,211,167,.45));
   animation: doset-lift 1.3s ease-in-out infinite;
 }
 @keyframes doset-spin { to { transform: rotate(360deg); } }
@@ -330,26 +331,9 @@ body { display: flex; min-height: 100%; }
   50%      { transform: translateY(-6px) rotate(5deg); }
 }
 
-/* Indicateur de série (numéro en cours / total) */
-.doset-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 5px 14px;
-  font-size: .82rem;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: rgba(34,211,167,.1);
-  border: 1px solid rgba(34,211,167,.3);
-  border-radius: 999px;
-}
-
 /* Titre avec un reflet qui balaie le texte */
 .doset-title {
-  font-size: 1.8rem; font-weight: 800; margin: 16px 0 2px;
+  font-size: 1.8rem; font-weight: 800; margin: 20px 0 2px;
   background: linear-gradient(100deg, var(--text) 32%, var(--accent) 50%, var(--text) 68%);
   background-size: 220% auto;
   -webkit-background-clip: text; background-clip: text;
@@ -358,11 +342,10 @@ body { display: flex; min-height: 100%; }
 }
 @keyframes doset-shine { to { background-position: -220% center; } }
 
-.doset-sub { color: var(--text-dim); margin: 0; font-size: 1rem; }
-.doset-view .btn-primary { margin-top: 26px; width: 100%; max-width: 360px; }
+.doset-view .btn-primary { margin-top: 30px; width: 100%; max-width: 360px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .doset-glow, .doset-ring, .doset-core, .doset-emoji, .doset-title { animation: none; }
+  .doset-glow, .doset-ring, .doset-core, .doset-icon, .doset-title { animation: none; }
   .doset-title { color: var(--text); -webkit-text-fill-color: var(--text); }
 }
 
