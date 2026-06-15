@@ -85,7 +85,7 @@ let selectedRest = 0;
 // ---- DOM ----
 const $ = (s) => document.querySelector(s);
 const screens = { home: $('#screen-home'), main: $('#screen-main') };
-const views = { setup: $('#setup-view'), duration: $('#duration-view'), doset: $('#doset-view'), timer: $('#timer-view') };
+const views = { setup: $('#setup-view'), duration: $('#duration-view'), doset: $('#doset-view'), timer: $('#timer-view'), done: $('#done-view') };
 
 // =====================================================================
 //  Persistance
@@ -520,9 +520,20 @@ function skipSeries() {
 
 function finishSession() {
   pauseTimer();
+  stopKeepAlive();
   releaseWakeLock();
-  showScreen('home');
-  showSnackbar('Séance terminée 🎉');
+  clearAllNotifications();
+  showDone();
+}
+
+// Écran de fin : toutes les séries sont faites.
+function showDone() {
+  const total = selectedSeries;
+  const plural = total > 1 ? 's' : '';
+  const modeLabel = session.mode === 'effort' ? 'Effort + Pause' : 'Pause seule';
+  $('#done-sub').textContent = `${total} série${plural} bouclée${plural} · ${modeLabel} 💪`;
+  showScreen('main');
+  showView('done');
 }
 
 function setPlayPause(running) {
@@ -997,6 +1008,8 @@ function wireEvents() {
   $('#skip-btn').addEventListener('click', skipSeries);
   $('#change-btn').addEventListener('click', backToChoice);
   $('#doset-done').addEventListener('click', () => { getAudioCtx(); startPhase('pause', session.pause); });
+  $('#done-restart').addEventListener('click', () => { getAudioCtx(); startSession(); });
+  $('#done-home').addEventListener('click', () => { showScreen('home'); });
   wireSettings();
 }
 

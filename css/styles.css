@@ -186,6 +186,8 @@ body { display: flex; min-height: 100%; }
   border-radius: var(--radius);
   padding: 10px 12px;
 }
+/* Sur l'écran de fin, on masque la barre du haut pour un rendu plein écran. */
+#screen-main:has(#done-view.is-active) .topbar { display: none; }
 .icon-btn {
   flex: 0 0 auto;
   width: 48px; height: 48px;
@@ -237,6 +239,28 @@ body { display: flex; min-height: 100%; }
 .doset-view .btn-primary { margin-top: 26px; width: 100%; max-width: 360px; }
 @media (prefers-reduced-motion: reduce) {
   .doset-emoji { animation: none; }
+}
+
+/* ---------- Écran de fin de séance ---------- */
+.done-view { gap: 4px; text-align: center; padding: 0 6px; }
+.done-emoji {
+  font-size: clamp(5rem, 30vw, 8rem);
+  line-height: 1;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,.45));
+  animation: done-pop .6s cubic-bezier(.2,.9,.25,1.2) both;
+}
+@keyframes done-pop {
+  0%   { transform: scale(.2) rotate(-12deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.done-title { font-size: 1.9rem; font-weight: 800; margin: 16px 0 4px; color: var(--text); }
+.done-sub { color: var(--text-dim); margin: 0; font-size: 1.05rem; }
+.done-actions { width: 100%; max-width: 360px; margin-top: 30px; }
+.done-actions .btn-primary { width: 100%; }
+.done-actions .link-btn { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .done-emoji { animation: none; }
 }
 
 /* Toggle auto/manuel sur l'écran de réglage Effort+Pause */
