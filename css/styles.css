@@ -269,6 +269,10 @@ body { display: flex; min-height: 100%; }
 .view-title { font-size: 1.25rem; font-weight: 700; margin: 8px 0 16px; color: var(--text-dim); }
 .view-title--rest { margin-top: 22px; }
 
+/* Indice de raccourci clavier (Espace) */
+.kbd-hint { margin: 16px 0 0; font-size: .82rem; color: var(--text-dim); text-align: center; }
+.kbd-hint:empty { display: none; }
+
 /* ---------- Écran « Fais ta série » (mode Pause seule) ---------- */
 .doset-view { gap: 4px; text-align: center; padding: 0 6px; }
 

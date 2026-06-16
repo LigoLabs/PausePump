@@ -252,6 +252,7 @@ function showPauseChoice() {
   rt.pickPhase = 'pause';
   $('#duration-title').textContent = 'Choisis ta pause';
   showView('duration');
+  markDurationDefault();
 }
 function showManualChoice(phase) {
   rt.pickPhase = phase;
@@ -259,6 +260,21 @@ function showManualChoice(phase) {
     ? '💪 Effort — choisis la durée'
     : '😮‍💨 Pause — choisis la durée';
   showView('duration');
+  markDurationDefault();
+}
+// Dernière durée sélectionnée pour la phase en cours (= ce que lance la touche Espace).
+function currentDefaultDuration() {
+  if (session.mode === 'pause') return session.pause;
+  return rt.pickPhase === 'effort' ? session.effort : session.rest;
+}
+// Surligne la durée par défaut dans la grille + affiche l'indice « Espace ».
+function markDurationDefault() {
+  const d = currentDefaultDuration();
+  $('#duration-grid').querySelectorAll('.duration-cell').forEach((c) => {
+    c.classList.toggle('selected', Number(c.dataset.dur) === d);
+  });
+  const hint = $('#duration-hint');
+  if (hint) hint.textContent = d ? `⎵ Espace : relancer ${formatTime(d)}` : '';
 }
 // Mode Pause seule : écran « Fais ta série » avant de lancer la pause.
 function showDoSet() {
@@ -862,6 +878,26 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', clearAllNotificationsSoon);
 window.addEventListener('pageshow', clearAllNotificationsSoon);
+
+// Raccourci clavier Espace (ex. télécommande/clicker Bluetooth à la salle) :
+// - écran « Fais ta série » → valide la série
+// - écran de choix de durée → lance la dernière durée sélectionnée
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const t = e.target;
+  const tag = (t && t.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;
+  if (!$('#settings-modal').hidden) return;            // modale options ouverte
+  if (!$('#screen-main').classList.contains('is-active')) return;
+  if (views.doset.classList.contains('is-active')) {
+    e.preventDefault();
+    $('#doset-done').click();                          // valide la série
+  } else if (views.duration.classList.contains('is-active')) {
+    e.preventDefault();
+    getAudioCtx();
+    pickDuration(currentDefaultDuration());            // lance la dernière durée
+  }
+});
 
 // =====================================================================
 //  Snackbar
