@@ -269,9 +269,22 @@ body { display: flex; min-height: 100%; }
 .view-title { font-size: 1.25rem; font-weight: 700; margin: 8px 0 16px; color: var(--text-dim); }
 .view-title--rest { margin-top: 22px; }
 
-/* Indice de raccourci clavier (Espace) */
-.kbd-hint { margin: 16px 0 0; font-size: .82rem; color: var(--text-dim); text-align: center; }
+/* Indice de raccourci clavier (Espace) — masqué sur écrans tactiles (mobile) */
+.kbd-hint {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin: 16px auto 0;
+  font-size: .82rem; color: var(--text-dim); text-align: center;
+}
 .kbd-hint:empty { display: none; }
+.kbd-hint kbd {
+  font: inherit; font-weight: 700; color: var(--text);
+  padding: 2px 9px;
+  background: var(--bg-elev-2);
+  border: 1px solid rgba(255,255,255,.14);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+}
+@media (pointer: coarse) { .kbd-hint { display: none !important; } }
 
 /* ---------- Écran « Fais ta série » (mode Pause seule) ---------- */
 .doset-view { gap: 4px; text-align: center; padding: 0 6px; }

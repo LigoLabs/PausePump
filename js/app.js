@@ -274,7 +274,7 @@ function markDurationDefault() {
     c.classList.toggle('selected', Number(c.dataset.dur) === d);
   });
   const hint = $('#duration-hint');
-  if (hint) hint.textContent = d ? `⎵ Espace : relancer ${formatTime(d)}` : '';
+  if (hint) hint.innerHTML = d ? `<kbd>Espace</kbd> relancer ${formatTime(d)}` : '';
 }
 // Mode Pause seule : écran « Fais ta série » avant de lancer la pause.
 function showDoSet() {
