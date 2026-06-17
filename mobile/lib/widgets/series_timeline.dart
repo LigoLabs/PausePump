@@ -60,7 +60,7 @@ class _Dot extends StatelessWidget {
           width: 2,
         ),
         boxShadow: current
-            ? [BoxShadow(color: AppColors.accent.withOpacity(0.25), blurRadius: 8, spreadRadius: 2)]
+            ? [BoxShadow(color: AppColors.accent.withValues(alpha: 0.25), blurRadius: 8, spreadRadius: 2)]
             : null,
       ),
     );

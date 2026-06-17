@@ -57,11 +57,11 @@ class _DoSetViewState extends State<DoSetView>
                           colors: [AppColors.bgElev2, AppColors.bgElev],
                         ),
                         border: Border.all(
-                          color: AppColors.accent.withOpacity(0.25),
+                          color: AppColors.accent.withValues(alpha: 0.25),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.accent.withOpacity(0.45),
+                            color: AppColors.accent.withValues(alpha: 0.45),
                             blurRadius: 30,
                           ),
                         ],

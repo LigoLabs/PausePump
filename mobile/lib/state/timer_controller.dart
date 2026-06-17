@@ -57,7 +57,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
 
   // ---- État de séance ----
   bool inSession = false;
-  Step step = Step.duration;
+  SessionStep step = SessionStep.duration;
   Phase phase = Phase.pause;
   Phase _pickPhase = Phase.pause; // en manuel : quelle phase on choisit
 
@@ -122,7 +122,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
         _showDurationPick(Phase.pause);
       }
     } else if (effortAuto) {
-      step = Step.setup; // on règle effort + pause puis on lance
+      step = SessionStep.setup; // on règle effort + pause puis on lance
     } else {
       _showDurationPick(Phase.effort); // étape par étape : on commence par l'effort
     }
@@ -151,13 +151,13 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _showDoSet() {
     _stopTicker();
-    step = Step.doSet;
+    step = SessionStep.doSet;
     notifyListeners();
   }
 
   void _showDurationPick(Phase forPhase) {
     _pickPhase = forPhase;
-    step = Step.duration;
+    step = SessionStep.duration;
     notifyListeners();
   }
 
@@ -220,7 +220,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     phase = p;
     durationSec = dur;
     remaining = dur.toDouble();
-    step = Step.timer;
+    step = SessionStep.timer;
     _resume();
     notifyListeners();
   }
@@ -351,7 +351,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     notifications.cancelAll();
     wakelock.disable();
     if (_settings.endScreen) {
-      step = Step.done;
+      step = SessionStep.done;
     } else {
       inSession = false; // retour accueil
     }

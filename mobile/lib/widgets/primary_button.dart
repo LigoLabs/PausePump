@@ -24,7 +24,7 @@ class PrimaryButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: const Color(0xFF04130F),
-          disabledBackgroundColor: color.withOpacity(0.35),
+          disabledBackgroundColor: color.withValues(alpha: 0.35),
           padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),

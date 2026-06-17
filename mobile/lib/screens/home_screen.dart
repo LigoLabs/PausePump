@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/enums.dart';
 import '../state/timer_controller.dart';
 import '../theme.dart';
 import '../widgets/mode_segment.dart';
@@ -22,44 +21,49 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.watch<TimerController>();
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Icon(Icons.settings, color: AppColors.text),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                children: [
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Icon(Icons.settings, color: AppColors.text),
+                  ),
+                  const SizedBox(height: 12),
+                  RichText(
+                    text: const TextSpan(
+                      style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800),
+                      children: [
+                        TextSpan(text: 'Pause', style: TextStyle(color: AppColors.text)),
+                        TextSpan(text: 'Pump', style: TextStyle(color: AppColors.accent)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Gère tes pauses & efforts 💪',
+                    style: TextStyle(color: AppColors.textDim, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  ModeSegment(value: c.mode, onChanged: c.setMode),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'Combien de séries ?',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 16),
+                  _seriesGrid(),
+                  const SizedBox(height: 28),
+                  PrimaryButton(
+                    label: "C'est parti",
+                    onPressed: _series < 1 ? null : () => c.startSession(_series),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800),
-                  children: [
-                    TextSpan(text: 'Pause', style: TextStyle(color: AppColors.text)),
-                    TextSpan(text: 'Pump', style: TextStyle(color: AppColors.accent)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Gère tes pauses & efforts 💪',
-                style: TextStyle(color: AppColors.textDim, fontSize: 16),
-              ),
-              const SizedBox(height: 24),
-              ModeSegment(value: c.mode, onChanged: c.setMode),
-              const SizedBox(height: 22),
-              const Text(
-                'Combien de séries ?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              _seriesGrid(),
-              const Spacer(),
-              PrimaryButton(
-                label: "C'est parti",
-                onPressed: _series < 1 ? null : () => c.startSession(_series),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -73,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisCount: 3,
       mainAxisSpacing: 14,
       crossAxisSpacing: 14,
+      childAspectRatio: 1.1,
       children: [
         for (final n in kSeriesChoices)
           GestureDetector(

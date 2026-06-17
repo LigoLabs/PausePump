@@ -22,8 +22,8 @@ class SessionScreen extends StatelessWidget {
           children: [
             Column(
               children: [
-                if (c.step != Step.done) const _TopBar(),
-                if (c.step != Step.done && c.step != Step.setup)
+                if (c.step != SessionStep.done) const _TopBar(),
+                if (c.step != SessionStep.done && c.step != SessionStep.setup)
                   SeriesTimeline(
                     total: c.seriesTotal,
                     dots: c.tlDots,
@@ -48,16 +48,16 @@ class SessionScreen extends StatelessWidget {
 
 class _StepView extends StatelessWidget {
   const _StepView({required this.step});
-  final Step step;
+  final SessionStep step;
 
   @override
   Widget build(BuildContext context) {
     return switch (step) {
-      Step.setup => const _SetupView(),
-      Step.duration => const _DurationView(),
-      Step.doSet => const DoSetView(),
-      Step.timer => const _TimerView(),
-      Step.done => const _DoneView(),
+      SessionStep.setup => const _SetupView(),
+      SessionStep.duration => const _DurationView(),
+      SessionStep.doSet => const DoSetView(),
+      SessionStep.timer => const _TimerView(),
+      SessionStep.done => const _DoneView(),
     };
   }
 }
@@ -85,6 +85,9 @@ class _TopBar extends StatelessWidget {
               onPressed: c.quitToHome,
               icon: const Icon(Icons.home_outlined),
               color: AppColors.text,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
             const Spacer(),
             _StepBtn(icon: Icons.remove, onTap: c.seriesRemaining <= 0 ? null : c.removeSeries),
@@ -121,6 +124,9 @@ class _StepBtn extends StatelessWidget {
       icon: Icon(icon),
       color: AppColors.text,
       disabledColor: AppColors.track,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
     );
   }
 }
@@ -142,7 +148,7 @@ class _SetupView extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: const Text('🔁 Enchaînement auto'),
             value: c.effortAuto,
-            activeColor: AppColors.accent,
+            activeThumbColor: AppColors.accent,
             onChanged: c.setEffortAuto,
           ),
           const SizedBox(height: 8),
@@ -323,7 +329,7 @@ class _CountdownOverlay extends StatelessWidget {
     final isGo = v < 0;
     return Positioned.fill(
       child: Container(
-        color: AppColors.bg.withOpacity(0.96),
+        color: AppColors.bg.withValues(alpha: 0.96),
         alignment: Alignment.center,
         child: Column(
           mainAxisSize: MainAxisSize.min,

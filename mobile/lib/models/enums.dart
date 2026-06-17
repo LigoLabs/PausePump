@@ -5,7 +5,7 @@ enum SessionMode { pause, effort }
 enum Phase { pause, effort }
 
 /// Étape courante à l'écran (à l'intérieur d'une séance).
-enum Step { setup, duration, doSet, timer, done }
+enum SessionStep { setup, duration, doSet, timer, done }
 
 /// Son joué à la fin d'une pause.
 enum AlarmSound { triple, bell }
