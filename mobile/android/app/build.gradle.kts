@@ -10,6 +10,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Requis par flutter_local_notifications (API de dates Java 8+).
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -42,4 +44,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Fournit les API Java 8+ (java.time…) sur les anciennes versions d'Android.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
