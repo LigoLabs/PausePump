@@ -37,7 +37,9 @@ jobs:
         run: flutter create . --org com.ligolabs --project-name pausepump --platforms=android
 
       - name: Restore project sources (flutter create overwrites templates)
-        run: git checkout -- pubspec.yaml analysis_options.yaml lib test
+        run: |
+          git checkout -- pubspec.yaml analysis_options.yaml lib test
+          rm -f test/widget_test.dart
 
       - name: Pub get
         run: flutter pub get
