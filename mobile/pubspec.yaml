@@ -1,0 +1,26 @@
+name: pausepump
+description: PausePump — minuteur de pauses & efforts pour la muscu (Android & iOS).
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2 # gestion d'état (ChangeNotifier)
+  shared_preferences: ^2.3.2 # persistance réglages / dernière config
+  flutter_local_notifications: ^17.2.3 # notif planifiée de fin (fiable en arrière-plan)
+  timezone: ^0.9.4 # requis pour planifier les notifs à une date précise
+  flutter_timezone: ^3.0.1 # détecte le fuseau local de l'appareil
+  audioplayers: ^6.1.0 # lecture des bips (assets WAV)
+  wakelock_plus: ^1.2.8 # garder l'écran allumé pendant un décompte
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/sounds/

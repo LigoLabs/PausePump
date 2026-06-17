@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-PausePump is a **zero-dependency, no-build static PWA** (vanilla HTML/CSS/JS) — a rest-timer for weightlifting. The entire app is `index.html` + `css/styles.css` + `js/app.js` + `sw.js`. There is no framework, no bundler, no package.json, and no test suite. UI text and most code comments are in **French**; keep that convention.
+PausePump is a **zero-dependency, no-build static PWA** (vanilla HTML/CSS/JS) — a rest-timer for weightlifting. The entire web app is `index.html` + `css/styles.css` + `js/app.js` + `sw.js`. There is no framework, no bundler, no package.json, and no test suite. UI text and most code comments are in **French**; keep that convention.
+
+A **native mobile app (Flutter)** lives in `mobile/` (Android + iOS), porting the same flows; the web PWA at the repo root stays the web target. The two are independent codebases — see `mobile/README.md`. Everything below this line concerns the **web** app.
 
 ## Commands
 

@@ -1,0 +1,23 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Generated platform shells (run `flutter create .` to (re)generate them).
+# Kept out of git so the repo stays clean; see README.md.
+/android/
+/ios/
+/web/
+/macos/
+/linux/
+/windows/
+
+# IDE
+.idea/
+.vscode/
+*.iml
