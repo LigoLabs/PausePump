@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pausepump/screens/home_screen.dart';
 import 'package:pausepump/screens/session_screen.dart';
 import 'package:pausepump/services/audio_service.dart';
+import 'package:pausepump/services/foreground_service.dart';
 import 'package:pausepump/services/notification_service.dart';
 import 'package:pausepump/services/storage.dart';
 import 'package:pausepump/services/wakelock_service.dart';
@@ -19,6 +20,7 @@ Future<TimerController> makeController() async {
     audio: AudioService(),
     notifications: NotificationService(),
     wakelock: WakelockService(),
+    foreground: ForegroundService(),
   );
 }
 

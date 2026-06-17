@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pausepump/models/enums.dart';
 import 'package:pausepump/services/audio_service.dart';
+import 'package:pausepump/services/foreground_service.dart';
 import 'package:pausepump/services/notification_service.dart';
 import 'package:pausepump/services/storage.dart';
 import 'package:pausepump/services/wakelock_service.dart';
@@ -19,6 +20,7 @@ void main() {
       audio: AudioService(),
       notifications: NotificationService(),
       wakelock: WakelockService(),
+      foreground: ForegroundService(),
     );
   }
 

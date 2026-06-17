@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../models/app_settings.dart';
 import '../models/enums.dart';
 import '../services/audio_service.dart';
+import '../services/foreground_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage.dart';
 import '../services/wakelock_service.dart';
@@ -32,6 +33,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     required this.audio,
     required this.notifications,
     required this.wakelock,
+    required this.foreground,
   }) {
     _settings = storage.loadSettings();
     _lastPause = storage.loadLastPause();
@@ -43,6 +45,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   final AudioService audio;
   final NotificationService notifications;
   final WakelockService wakelock;
+  final ForegroundService foreground;
 
   // ---- Config & réglages ----
   late AppSettings _settings;
@@ -151,11 +154,13 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _showDoSet() {
     _stopTicker();
+    foreground.stop();
     step = SessionStep.doSet;
     notifyListeners();
   }
 
   void _showDurationPick(Phase forPhase) {
+    foreground.stop();
     _pickPhase = forPhase;
     step = SessionStep.duration;
     notifyListeners();
@@ -232,6 +237,8 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
       Duration(milliseconds: (remaining * 1000).round()),
     );
     _scheduleEndNotification();
+    // Chrono natif dans la notification persistante (Android).
+    foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
     if (_settings.keepAwake) wakelock.enable();
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(milliseconds: 200), (_) => _tick());
@@ -242,6 +249,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     running = false;
     _stopTicker();
     notifications.cancelEnd();
+    foreground.stop();
     wakelock.disable();
     notifyListeners();
   }
@@ -260,8 +268,14 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     if (running) {
       _endTime = DateTime.now().add(Duration(seconds: durationSec));
       _scheduleEndNotification();
+      foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
     }
     notifyListeners();
+  }
+
+  String _phaseLabel() {
+    if (mode == SessionMode.pause) return 'Pause';
+    return phase == Phase.effort ? 'Effort 💪' : 'Pause 😮‍💨';
   }
 
   void _tick() {
@@ -349,6 +363,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _stopTicker();
     running = false;
     notifications.cancelAll();
+    foreground.stop();
     wakelock.disable();
     if (_settings.endScreen) {
       step = SessionStep.done;
@@ -365,6 +380,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   void quitToHome() {
     pause();
     notifications.cancelAll();
+    foreground.stop();
     wakelock.disable();
     inSession = false;
     notifyListeners();

@@ -49,4 +49,6 @@ flutter {
 dependencies {
     // Fournit les API Java 8+ (java.time…) sur les anciennes versions d'Android.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // NotificationCompat / ContextCompat pour le service de premier plan.
+    implementation("androidx.core:core-ktx:1.13.1")
 }

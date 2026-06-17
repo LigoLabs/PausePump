@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/session_screen.dart';
 import 'services/audio_service.dart';
+import 'services/foreground_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage.dart';
 import 'services/wakelock_service.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
     audio: audio,
     notifications: notifications,
     wakelock: WakelockService(),
+    foreground: ForegroundService(),
   );
 
   runApp(
