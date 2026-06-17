@@ -383,7 +383,6 @@ function startPhase(phase, duration) {
   rt.duration = duration;
   rt.remaining = duration;
   rt.finished = false;
-  lastNotifSec = -1;
   updatePhaseUI();
   showView('timer');
   updateTimerUI();
@@ -480,6 +479,7 @@ function resumeTimer() {
   startKeepAlive();             // garde le moteur audio actif en arrière-plan
   scheduleAlarm(rt.remaining);  // programme le bip de fin sur l'horloge audio
   rt.intervalId = setInterval(loop, 200);
+  showTimerNotification();      // si on est déjà en arrière-plan (ex. enchaînement effort→pause)
 }
 function pauseTimer() {
   if (!rt.running) return;
@@ -526,7 +526,6 @@ function loop() {
     return;
   }
   updateTimerUI();
-  maybeNotify();
 }
 
 function updateTimerUI() {
@@ -797,28 +796,24 @@ async function ensureNotifPermission() {
 function notifReady() {
   return ('Notification' in window) && Notification.permission === 'granted' && navigator.serviceWorker;
 }
-let lastNotifSec = -1;
-function maybeNotify() {
-  if (!settings.notify || !document.hidden || !notifReady()) return;
-  const sec = Math.ceil(rt.remaining);
-  if (sec === lastNotifSec) return; // on ne ré-affiche que quand la seconde change
-  lastNotifSec = sec;
-  showTimerNotification();
-}
+// Notif « en cours » : affichée UNE fois (à la mise en arrière-plan ou au
+// changement de phase), jamais ré-écrite chaque seconde. En arrière-plan le JS
+// est gelé : un décompte ré-écrit saute / se « relance ». On montre plutôt
+// l'HEURE DE FIN (absolue), que le système n'a pas à recalculer → toujours juste.
 async function showTimerNotification() {
-  if (!notifReady() || !document.hidden) return; // jamais de notif quand l'app est au premier plan
+  if (!settings.notify || !notifReady() || !document.hidden || !rt.running) return;
   const reg = await navigator.serviceWorker.ready.catch(() => null);
-  if (!reg) return;
-  if (!document.hidden) return; // l'app est peut-être redevenue visible pendant l'await
+  if (!reg || !document.hidden || !rt.running) return; // état peut avoir changé pendant l'await
   const label = session.mode === 'effort' ? (rt.phase === 'effort' ? 'Effort 💪' : 'Pause 😮‍💨') : 'Pause';
-  // Décompte affiché : on ré-affiche la notif chaque seconde (mise à jour en place).
-  // Le moteur audio (keep-alive) garde la page active en arrière-plan sur Android.
   const total = Math.max(rt.seriesTotal || 0, rt.seriesRemaining || 0);
   const serie = Math.min(total, total - rt.seriesRemaining + 1);
+  const endMs = Date.now() + Math.max(0, rt.remaining) * 1000;
+  const endClock = new Date(endMs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   reg.showNotification('PausePump ⏱️', {
     tag: 'pausepump-timer',
-    body: `${label} • ${formatTime(Math.ceil(rt.remaining))} • série ${serie}/${total}`,
+    body: `${label} • fin à ${endClock} • série ${serie}/${total}`,
     silent: true, renotify: false, requireInteraction: false,
+    timestamp: endMs,
     icon: 'icons/icon-192.png', badge: 'icons/badge-96.png',
   });
 }
@@ -869,11 +864,9 @@ async function showFinishNotification() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     clearAllNotificationsSoon(); // au retour sur l'app : on enlève toutes ses notifs
-    lastNotifSec = -1;
     if (rt.running) requestWakeLock();
   } else if (rt.running) {
-    lastNotifSec = -1;
-    showTimerNotification();
+    showTimerNotification(); // mise en arrière-plan pendant un décompte
   }
 });
 window.addEventListener('focus', clearAllNotificationsSoon);
