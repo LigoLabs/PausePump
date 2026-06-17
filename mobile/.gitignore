@@ -8,14 +8,20 @@ build/
 .pub/
 pubspec.lock
 
-# Generated platform shells (run `flutter create .` to (re)generate them).
-# Kept out of git so the repo stays clean; see README.md.
-/android/
+# android/ is committed (with its native config). iOS/web/desktop shells are
+# generated on demand (flutter create) and kept out of git — see README.md.
 /ios/
 /web/
 /macos/
 /linux/
 /windows/
+
+# Machine-specific / generated bits inside android/
+android/local.properties
+android/.gradle/
+android/.kotlin/
+android/app/.cxx/
+**/GeneratedPluginRegistrant.*
 
 # IDE
 .idea/
