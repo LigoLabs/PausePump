@@ -875,6 +875,7 @@ window.addEventListener('pageshow', clearAllNotificationsSoon);
 // Raccourci clavier Espace (ex. télécommande/clicker Bluetooth à la salle) :
 // - écran « Fais ta série » → valide la série
 // - écran de choix de durée → lance la dernière durée sélectionnée
+// - écran de fin de séance → recommence la séance
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' && e.key !== ' ' && e.key !== 'Spacebar') return;
   const t = e.target;
@@ -889,6 +890,9 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     getAudioCtx();
     pickDuration(currentDefaultDuration());            // lance la dernière durée
+  } else if (views.done.classList.contains('is-active')) {
+    e.preventDefault();
+    $('#done-restart').click();                        // recommence la séance
   }
 });
 
