@@ -91,5 +91,16 @@ jobs:
       - name: Configurer les targets Xcode (widgets + watch)
         run: ruby ios/scripts/setup_ios_targets.rb
 
+      # Les erreurs de compilation sont réémises en annotations « ::error:: » :
+      # elles apparaissent dans l'UI GitHub et restent lisibles via l'API
+      # publique (les logs bruts des jobs, eux, exigent une authentification).
       - name: Build iOS (debug, non signé)
-        run: flutter build ios --debug --no-codesign
+        run: |
+          set -o pipefail
+          if ! flutter build ios --debug --no-codesign 2>&1 | tee build-ios.log; then
+            echo '---- Erreurs de compilation ----'
+            grep -E "error:|BUILD FAILED|Undefined symbol|Encountered error" build-ios.log \
+              | head -40 \
+              | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
