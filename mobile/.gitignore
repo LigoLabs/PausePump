@@ -8,9 +8,8 @@ build/
 .pub/
 pubspec.lock
 
-# android/ is committed (with its native config). iOS/web/desktop shells are
-# generated on demand (flutter create) and kept out of git — see README.md.
-/ios/
+# android/ and ios/ are committed (with their native config: bridges, widget,
+# watch app). Web/desktop shells stay generated on demand — see README.md.
 /web/
 /macos/
 /linux/

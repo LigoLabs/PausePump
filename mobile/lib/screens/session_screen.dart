@@ -160,9 +160,9 @@ class _SetupView extends StatelessWidget {
           const SizedBox(height: 24),
           PrimaryButton(
             label: 'Démarrer ▶',
-            onPressed: c.effortAuto
-                ? c.startEffortAuto
-                : () => c.pickDuration(c.effortSel),
+            // Étape par étape : on passe par le choix de la durée d'effort
+            // (pickDuration directement viserait la mauvaise phase).
+            onPressed: c.effortAuto ? c.startEffortAuto : c.startEffortManual,
           ),
         ],
       ),

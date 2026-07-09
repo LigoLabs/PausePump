@@ -7,9 +7,11 @@ import '../models/app_settings.dart';
 import '../models/enums.dart';
 import '../services/audio_service.dart';
 import '../services/foreground_service.dart';
+import '../services/live_activity_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage.dart';
 import '../services/wakelock_service.dart';
+import '../services/watch_sync_service.dart';
 
 /// Durées de timer proposées (secondes).
 const List<int> kDurations = [30, 45, 60, 90, 120, 150, 180, 300];
@@ -34,11 +36,15 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     required this.notifications,
     required this.wakelock,
     required this.foreground,
+    required this.liveActivity,
+    required this.watchSync,
   }) {
     _settings = storage.loadSettings();
     _lastPause = storage.loadLastPause();
     mode = storage.loadMode() == 'effort' ? SessionMode.effort : SessionMode.pause;
     WidgetsBinding.instance.addObserver(this);
+    liveActivity.end(); // activité orpheline d'un lancement précédent
+    _pushWatchContext();
   }
 
   final Storage storage;
@@ -46,6 +52,8 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   final NotificationService notifications;
   final WakelockService wakelock;
   final ForegroundService foreground;
+  final LiveActivityService liveActivity;
+  final WatchSyncService watchSync;
 
   // ---- Config & réglages ----
   late AppSettings _settings;
@@ -88,7 +96,10 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   bool get isEnding => remaining <= 5 && remaining > 0;
   int get currentSeries {
     final t = seriesTotal == 0 ? 1 : seriesTotal;
-    return (tlDots + 1).clamp(1, t).toInt();
+    // Mode pause : les points suivent la validation des séries (tlDots).
+    // Mode effort : dérivé du compteur (parité avec le web).
+    final raw = mode == SessionMode.effort ? t - seriesRemaining + 1 : tlDots + 1;
+    return raw.clamp(1, t).toInt();
   }
 
   // ===========================================================================
@@ -97,6 +108,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> updateSettings(AppSettings s) async {
     _settings = s;
     await storage.saveSettings(s);
+    _pushWatchContext();
     notifyListeners();
   }
 
@@ -106,6 +118,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> setMode(SessionMode m) async {
     mode = m;
     await storage.saveMode(m.name);
+    _pushWatchContext();
     notifyListeners();
   }
 
@@ -152,10 +165,21 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _runCountdown(kCountdownAuto, () => _startPhase(Phase.effort, effortSel));
   }
 
+  /// Démarre le mode étape par étape depuis l'écran setup (l'utilisateur a
+  /// désactivé l'enchaînement auto) : on choisit d'abord la durée d'effort.
+  void startEffortManual() {
+    _showDurationPick(Phase.effort);
+  }
+
   void _showDoSet() {
     _stopTicker();
     foreground.stop();
     step = SessionStep.doSet;
+    liveActivity.idle(
+      label: 'Fais ta ${_ordinal(currentSeries)} série 💪',
+      seriesCurrent: currentSeries,
+      seriesTotal: seriesTotal,
+    );
     notifyListeners();
   }
 
@@ -163,6 +187,11 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     foreground.stop();
     _pickPhase = forPhase;
     step = SessionStep.duration;
+    liveActivity.idle(
+      label: durationTitle,
+      seriesCurrent: currentSeries,
+      seriesTotal: seriesTotal,
+    );
     notifyListeners();
   }
 
@@ -194,6 +223,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     if (mode == SessionMode.pause) {
       _lastPause = d;
       storage.saveLastPause(d);
+      _pushWatchContext();
       if (!_settings.doSetScreen) {
         tlDots = (tlDots + 1).clamp(0, seriesTotal).toInt();
         _adjustSeries(-1);
@@ -239,6 +269,8 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _scheduleEndNotification();
     // Chrono natif dans la notification persistante (Android).
     foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
+    // Chrono natif sur l'écran verrouillé / Dynamic Island (iOS).
+    _liveActivityStart();
     if (_settings.keepAwake) wakelock.enable();
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(milliseconds: 200), (_) => _tick());
@@ -250,6 +282,13 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _stopTicker();
     notifications.cancelEnd();
     foreground.stop();
+    liveActivity.pause(
+      remaining: remaining,
+      label: _phaseLabel(),
+      seriesCurrent: currentSeries,
+      seriesTotal: seriesTotal,
+      isEffort: _isEffortPhase,
+    );
     wakelock.disable();
     notifyListeners();
   }
@@ -269,6 +308,16 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
       _endTime = DateTime.now().add(Duration(seconds: durationSec));
       _scheduleEndNotification();
       foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
+      _liveActivityStart();
+    } else {
+      // Timer en pause : la Live Activity doit refléter le restant remis à zéro.
+      liveActivity.pause(
+        remaining: remaining,
+        label: _phaseLabel(),
+        seriesCurrent: currentSeries,
+        seriesTotal: seriesTotal,
+        isEffort: _isEffortPhase,
+      );
     }
     notifyListeners();
   }
@@ -276,6 +325,51 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   String _phaseLabel() {
     if (mode == SessionMode.pause) return 'Pause';
     return phase == Phase.effort ? 'Effort 💪' : 'Pause 😮‍💨';
+  }
+
+  bool get _isEffortPhase => mode == SessionMode.effort && phase == Phase.effort;
+
+  void _liveActivityStart() {
+    final end = _endTime;
+    if (end == null) return;
+    liveActivity.start(
+      endTime: end,
+      // Origine visuelle de la barre de progression : constante pour toute la
+      // phase (y compris après une reprise), sinon la barre repart de zéro.
+      startTime: end.subtract(Duration(seconds: durationSec)),
+      label: _phaseLabel(),
+      seriesCurrent: currentSeries,
+      seriesTotal: seriesTotal,
+      isEffort: _isEffortPhase,
+    );
+  }
+
+  /// Republie l'état courant sur la Live Activity (après un +/- de séries…).
+  void _pushLiveActivitySnapshot() {
+    if (!inSession) return;
+    if (running) {
+      _liveActivityStart();
+    } else if (step == SessionStep.timer) {
+      liveActivity.pause(
+        remaining: remaining,
+        label: _phaseLabel(),
+        seriesCurrent: currentSeries,
+        seriesTotal: seriesTotal,
+        isEffort: _isEffortPhase,
+      );
+    } else if (step == SessionStep.doSet) {
+      liveActivity.idle(
+        label: 'Fais ta ${_ordinal(currentSeries)} série 💪',
+        seriesCurrent: currentSeries,
+        seriesTotal: seriesTotal,
+      );
+    } else if (step == SessionStep.duration) {
+      liveActivity.idle(
+        label: durationTitle,
+        seriesCurrent: currentSeries,
+        seriesTotal: seriesTotal,
+      );
+    }
   }
 
   void _tick() {
@@ -322,6 +416,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
         autoNext = Phase.pause;
       } else {
         _adjustSeries(-1);
+        _syncEffortTimeline();
         sessionEnd = seriesRemaining <= 0;
         if (!sessionEnd) autoNext = Phase.effort;
       }
@@ -330,6 +425,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
         manualNext = Phase.pause;
       } else {
         _adjustSeries(-1);
+        _syncEffortTimeline();
         sessionEnd = seriesRemaining <= 0;
         if (!sessionEnd) manualNext = Phase.effort;
       }
@@ -364,6 +460,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     running = false;
     notifications.cancelAll();
     foreground.stop();
+    liveActivity.end();
     wakelock.disable();
     if (_settings.endScreen) {
       step = SessionStep.done;
@@ -373,6 +470,9 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Relance une séance avec le même total (ajustements +/- inclus) — choix
+  /// assumé, léger écart avec le web qui repart de la sélection d'origine ;
+  /// même sémantique que le moteur watch (WorkoutEngine.restart).
   void restart() {
     startSession(seriesTotal);
   }
@@ -381,6 +481,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     pause();
     notifications.cancelAll();
     foreground.stop();
+    liveActivity.end();
     wakelock.disable();
     inSession = false;
     notifyListeners();
@@ -393,9 +494,16 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     seriesRemaining = (seriesRemaining + delta).clamp(0, 1 << 31).toInt();
   }
 
+  /// Mode effort : la timeline suit le compteur (une série = effort + pause).
+  void _syncEffortTimeline() {
+    tlDots = (seriesTotal - seriesRemaining).clamp(0, 1 << 31).toInt();
+    tlBars = tlDots;
+  }
+
   void addSeries() {
     seriesTotal += 1;
     _adjustSeries(1);
+    _pushLiveActivitySnapshot();
     notifyListeners();
   }
 
@@ -403,6 +511,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     if (seriesRemaining <= 0) return;
     seriesTotal = (seriesTotal - 1).clamp(1, 1 << 31).toInt();
     _adjustSeries(-1);
+    _pushLiveActivitySnapshot();
     notifyListeners();
   }
 
@@ -452,6 +561,10 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
           remaining = 0;
           _onPhaseComplete();
         } else {
+          // cancelAll() vient de supprimer la notif de fin planifiée : on la
+          // réarme tant que le décompte court (sinon plus de bip si l'app
+          // repasse en arrière-plan sans changer de phase).
+          _scheduleEndNotification();
           notifyListeners();
         }
       }
@@ -466,8 +579,25 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     final label = mode == SessionMode.effort
         ? (phase == Phase.effort ? 'Effort terminé 💪' : 'Pause terminée 😮‍💨')
         : 'Pause terminée';
-    notifications.scheduleEnd(_endTime!, body: '$label • à toi de jouer !');
+    notifications.scheduleEnd(
+      _endTime!,
+      body: '$label • à toi de jouer !',
+      iosSound: _settings.alarm.iosSoundFile,
+    );
   }
+
+  void _pushWatchContext() {
+    watchSync.pushContext(
+      lastPause: _lastPause,
+      mode: mode.name,
+      alarm: _settings.alarm.name,
+      vibrate: _settings.vibrate,
+      sound: _settings.sound,
+      volume: _settings.volume,
+    );
+  }
+
+  String _ordinal(int n) => n == 1 ? '1re' : '${n}e';
 
   void _countBeep(bool go) {
     if (_settings.volume <= 0) return;

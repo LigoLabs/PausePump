@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build mobile
 
 on:
   push:
@@ -51,3 +51,45 @@ jobs:
           name: pausepump-debug-apk
           path: mobile/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+  # Tests unitaires du moteur de séance watchOS (package SPM pur, sans Flutter).
+  watch-engine-tests:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tests WatchEngine (SwiftPM)
+        run: swift test --package-path mobile/watch_engine
+
+  # Build iOS de vérification (non signé). Le script Ruby câble d'abord le
+  # projet Xcode (ponts natifs, extension widget, app watch) — le pbxproj
+  # committé est le shell Flutter brut.
+  build-ios:
+    runs-on: macos-15
+    needs: watch-engine-tests # fail fast : inutile de builder si le moteur casse
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.2
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj --no-document
+
+      - name: Configurer les targets Xcode (widgets + watch)
+        run: ruby ios/scripts/setup_ios_targets.rb
+
+      - name: Build iOS (debug, non signé)
+        run: flutter build ios --debug --no-codesign

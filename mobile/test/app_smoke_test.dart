@@ -4,9 +4,11 @@ import 'package:pausepump/screens/home_screen.dart';
 import 'package:pausepump/screens/session_screen.dart';
 import 'package:pausepump/services/audio_service.dart';
 import 'package:pausepump/services/foreground_service.dart';
+import 'package:pausepump/services/live_activity_service.dart';
 import 'package:pausepump/services/notification_service.dart';
 import 'package:pausepump/services/storage.dart';
 import 'package:pausepump/services/wakelock_service.dart';
+import 'package:pausepump/services/watch_sync_service.dart';
 import 'package:pausepump/state/timer_controller.dart';
 import 'package:pausepump/theme.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +23,8 @@ Future<TimerController> makeController() async {
     notifications: NotificationService(),
     wakelock: WakelockService(),
     foreground: ForegroundService(),
+    liveActivity: LiveActivityService(supported: false),
+    watchSync: WatchSyncService(supported: false),
   );
 }
 

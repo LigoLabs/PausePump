@@ -24,10 +24,19 @@ class NotificationService {
     playSound: true,
   );
 
-  static const NotificationDetails _endDetails = NotificationDetails(
-    android: _androidEnd,
-    iOS: DarwinNotificationDetails(presentSound: true, presentAlert: true),
-  );
+  /// iOS : le son est celui de l'alarme choisie (WAV bundlé dans Runner) et la
+  /// notif est « time-sensitive » pour sonner malgré les modes de concentration.
+  static NotificationDetails _endDetails(String? iosSound) {
+    return NotificationDetails(
+      android: _androidEnd,
+      iOS: DarwinNotificationDetails(
+        presentSound: true,
+        presentAlert: true,
+        sound: iosSound,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      ),
+    );
+  }
 
   Future<void> init() async {
     if (_ready) return;
@@ -66,8 +75,13 @@ class NotificationService {
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
-  /// Planifie la notif de fin de pause à [when].
-  Future<void> scheduleEnd(DateTime when, {required String body}) async {
+  /// Planifie la notif de fin de pause à [when]. [iosSound] : nom du fichier
+  /// son dans le bundle iOS (null = son système).
+  Future<void> scheduleEnd(
+    DateTime when, {
+    required String body,
+    String? iosSound,
+  }) async {
     final plugin = _plugin;
     if (plugin == null) return;
     final at = tz.TZDateTime.from(when, tz.local);
@@ -77,7 +91,7 @@ class NotificationService {
         'PausePump ⏱️',
         body,
         at,
-        _endDetails,
+        _endDetails(iosSound),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
