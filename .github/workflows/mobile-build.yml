@@ -98,9 +98,11 @@ jobs:
         run: |
           set -o pipefail
           if ! flutter build ios --debug --no-codesign 2>&1 | tee build-ios.log; then
-            echo '---- Erreurs de compilation ----'
-            grep -E "error:|BUILD FAILED|Undefined symbol|Encountered error" build-ios.log \
-              | head -40 \
+            echo '---- Erreurs de compilation (max 10 annotations/step) ----'
+            grep -iE "error:|error \(xcode\)|build failed|undefined symbol|failed to build|no such module|cannot find" build-ios.log \
+              | grep -vi "warning" | head -10 \
               | while IFS= read -r line; do echo "::error::${line}"; done
+            echo '---- Fin du log ----'
+            tail -n 80 build-ios.log
             exit 1
           fi
