@@ -287,7 +287,16 @@ def setup_widget_target(project, runner, runner_group)
   # NB : WidgetKit / SwiftUI / ActivityKit sont auto-linkés par le compilateur
   # Swift ; inutile d'ajouter une phase Frameworks explicite.
   apply_build_settings(widget,
+                       # PRODUCT_NAME : voir le commentaire détaillé dans
+                       # setup_watch_target. Sans lui le produit s'appelle
+                       # « .appex » et CFBundleName ($(PRODUCT_NAME) dans
+                       # Info.plist) est vide.
+                       'PRODUCT_NAME'               => '$(TARGET_NAME)',
                        'PRODUCT_BUNDLE_IDENTIFIER'  => 'com.ligolabs.pausepump.widgets',
+                       # Info.plist référence $(PRODUCT_BUNDLE_PACKAGE_TYPE) :
+                       # ce réglage n'a plus de valeur par défaut depuis
+                       # Xcode 15, on le pose explicitement (XPC! = appex).
+                       'PRODUCT_BUNDLE_PACKAGE_TYPE' => 'XPC!',
                        'INFOPLIST_FILE'             => 'PausePumpWidgets/Info.plist',
                        'GENERATE_INFOPLIST_FILE'    => 'NO',
                        'SWIFT_VERSION'              => '5.0',
@@ -295,6 +304,11 @@ def setup_widget_target(project, runner, runner_group)
                        # sinon la validation App Store rejette l'extension.
                        'TARGETED_DEVICE_FAMILY'     => '1,2',
                        'IPHONEOS_DEPLOYMENT_TARGET' => '16.2',
+                       # Explicites : les configs Release/Profile du PROJET
+                       # posent SUPPORTED_PLATFORMS = iphoneos (sans le
+                       # simulateur), ce qui casserait un build simulateur.
+                       'SDKROOT'                    => 'iphoneos',
+                       'SUPPORTED_PLATFORMS'        => 'iphoneos iphonesimulator',
                        'CODE_SIGN_STYLE'            => 'Automatic',
                        # Alignées sur pubspec.yaml (version: 1.0.0+1) : la
                        # version de l'appex doit ÉGALER celle de l'app hôte.
@@ -340,6 +354,29 @@ def setup_watch_target(project, runner)
   ensure_file_reference(watch_group, File.join(WATCH_DIR, 'Info.plist'))
 
   apply_build_settings(watch,
+                       # ---------------------------------------------------------------
+                       # PRODUCT_NAME : INDISPENSABLE, ne pas retirer.
+                       # Personne ne le pose à notre place :
+                       #   - la gem xcodeproj ne l'émet que pour les targets
+                       #     :framework (COMMON_BUILD_SETTINGS[[:framework]]) ;
+                       #     pour [:watchos, :application] elle ne pose que
+                       #     SKIP_INSTALL et TARGETED_DEVICE_FAMILY ;
+                       #   - le shell Flutter ne le définit qu'au niveau des
+                       #     targets Runner / RunnerTests, jamais au niveau
+                       #     PROJET, et les xcconfig Flutter ne le contiennent
+                       #     pas non plus → rien à hériter.
+                       # Résultat sans cette ligne : PRODUCT_NAME = "" donc
+                       # FULL_PRODUCT_NAME = ".app" et EXECUTABLE_NAME = "",
+                       # deux tâches produisent le même chemin dégénéré et
+                       # xcodebuild échoue sur
+                       #   « Multiple commands produce …/Debug-watchos/.app ».
+                       # (Attention : target.product_name côté xcodeproj écrit
+                       # l'attribut pbxproj productName + le nom de la product
+                       # reference — PAS le build setting. Les deux doivent
+                       # coïncider, sinon la phase « Embed Watch Content »
+                       # copierait un fichier jamais produit.)
+                       # ---------------------------------------------------------------
+                       'PRODUCT_NAME'              => '$(TARGET_NAME)',
                        'PRODUCT_BUNDLE_IDENTIFIER' => 'com.ligolabs.pausepump.watchkitapp',
                        'INFOPLIST_FILE'            => 'PausePumpWatch/Info.plist',
                        'GENERATE_INFOPLIST_FILE'   => 'NO',
@@ -347,6 +384,19 @@ def setup_watch_target(project, runner)
                        'TARGETED_DEVICE_FAMILY'    => '4',
                        'WATCHOS_DEPLOYMENT_TARGET' => '9.0',
                        'SDKROOT'                   => 'watchos',
+                       # Les configs Release/Profile du PROJET posent
+                       # SUPPORTED_PLATFORMS = iphoneos ; sans cet écrasement la
+                       # target watch est « unsupported » dès le premier build
+                       # Release (flutter build ipa).
+                       'SUPPORTED_PLATFORMS'       => 'watchos watchsimulator',
+                       'SUPPORTS_MACCATALYST'      => 'NO',
+                       # xcodeproj pose ASSETCATALOG_COMPILER_APPICON_NAME =
+                       # AppIcon pour toute target :application ; cette app
+                       # watch n'a aucun asset catalog → on neutralise, sinon
+                       # l'ajout futur d'un .xcassets ferait échouer la
+                       # compilation du catalogue sur une icône absente.
+                       'ASSETCATALOG_COMPILER_APPICON_NAME' => '',
+                       'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => '',
                        'CODE_SIGN_STYLE'           => 'Automatic',
                        'CURRENT_PROJECT_VERSION'   => '1',
                        'MARKETING_VERSION'         => '1.0.0',

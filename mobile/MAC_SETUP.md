@@ -65,3 +65,51 @@ Dans Xcode ensuite :
 - **TestFlight / distribution** : nécessite un compte **Apple Developer**
   payant. Le build de la CI (`--no-codesign`) sert uniquement de vérification
   de compilation.
+
+## Vérifier sans Xcode (mêmes commandes que la CI)
+
+Après `ruby ios/scripts/setup_ios_targets.rb`, depuis `mobile/` :
+
+```bash
+# 1. Contrôle éclair : les targets générées doivent avoir un nom de produit.
+#    Attendu : « PausePumpWatch.app » et « PausePumpWidgets.appex ».
+#    Un « .app » / « .appex » nu = PRODUCT_NAME non résolu → le build iOS
+#    échouera sur « Multiple commands produce … » (voir README.md).
+xcodebuild -project ios/Runner.xcodeproj -target PausePumpWatch \
+  -configuration Debug -sdk watchsimulator -showBuildSettings \
+  | grep -E 'PRODUCT_NAME|FULL_PRODUCT_NAME|EXECUTABLE_PATH'
+xcodebuild -project ios/Runner.xcodeproj -target PausePumpWidgets \
+  -configuration Debug -sdk iphonesimulator -showBuildSettings \
+  | grep -E 'PRODUCT_NAME|FULL_PRODUCT_NAME'
+
+# 2. Compilation isolée de l'app watchOS (ni Flutter, ni CocoaPods, ni
+#    signature). `-target` et non `-scheme` : le script ne crée pas de scheme
+#    partagé pour la montre.
+xcodebuild -project ios/Runner.xcodeproj -target PausePumpWatch \
+  -configuration Debug -sdk watchsimulator \
+  -derivedDataPath build/ci-watch \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+  build
+
+# 3. Build iOS complet (compile les ponts Swift + l'appex + la montre, et
+#    exécute les phases « Embed Foundation Extensions » / « Embed Watch
+#    Content »). Flutter détecte la companion watchOS via
+#    ios/PausePumpWatch/Info.plist (WKCompanionAppBundleIdentifier =
+#    com.ligolabs.pausepump) et omet alors « -sdk iphoneos ».
+flutter build ios --debug --no-codesign
+
+# 4. L'embarquement a-t-il réellement eu lieu ?
+ls build/ios/iphoneos/Runner.app/PlugIns/PausePumpWidgets.appex
+ls build/ios/iphoneos/Runner.app/Watch/PausePumpWatch.app
+```
+
+Pour un build **simulateur** avec companion watchOS, Flutter exige un
+identifiant d'appareil : `flutter build ios --debug --simulator -d <UDID>`
+(sans `-d`, l'outil s'arrête sur « A device ID is required to build an app with
+a watchOS companion app »). Le CI vise l'appareil générique, donc non concerné.
+
+Ce que le CI **ne** vérifie **pas**, et qui demande un Mac + un compte
+développeur : la signature réelle des trois targets (provisioning profiles,
+App Groups), l'installation de l'app watch depuis l'app Watch de l'iPhone, le
+rendu effectif de la Live Activity / du Dynamic Island, et la synchronisation
+`WCSession` iPhone ↔ montre.

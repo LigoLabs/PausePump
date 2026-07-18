@@ -70,6 +70,15 @@ verrouillé) et `NSSupportsLiveActivities`. Les targets **PausePumpWidgets**
 Xcode par `ruby ios/scripts/setup_ios_targets.rb` (idempotent, exécuté par le
 CI et une fois sur le Mac) — voir [MAC_SETUP.md](MAC_SETUP.md).
 
+> **Piège connu — `PRODUCT_NAME`.** Une target créée par la gem `xcodeproj`
+> n'hérite d'aucun `PRODUCT_NAME` : la gem ne le pose que pour les frameworks,
+> et le shell Flutter ne le définit qu'au niveau des targets `Runner` /
+> `RunnerTests` (jamais au niveau projet, ni dans les xcconfig). Il s'évalue
+> alors en chaîne vide → `FULL_PRODUCT_NAME = ".app"` et xcodebuild échoue sur
+> `Multiple commands produce …/Debug-watchos/.app`. Le script pose donc
+> explicitement `PRODUCT_NAME = $(TARGET_NAME)` sur **les deux** targets qu'il
+> crée. Toute nouvelle target ajoutée au script doit faire de même.
+
 ## Architecture
 
 ```

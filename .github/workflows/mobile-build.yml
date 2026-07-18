@@ -91,6 +91,57 @@ jobs:
       - name: Configurer les targets Xcode (widgets + watch)
         run: ruby ios/scripts/setup_ios_targets.rb
 
+      # Garde-fou 10 secondes contre la panne la plus coûteuse : si PRODUCT_NAME
+      # n'est pas résolu sur une target créée par le script, FULL_PRODUCT_NAME
+      # vaut « .app » / « .appex » et xcodebuild échoue 10 minutes plus tard sur
+      # « Multiple commands produce …/.app », message qui ne nomme pas la cause.
+      # Ici l'échec est immédiat et explicite.
+      - name: Vérifier PRODUCT_NAME des targets générées
+        run: |
+          set -o pipefail
+          fail=0
+          check() {
+            target="$1"; sdk="$2"; expected="$3"
+            actual=$( { xcodebuild -project ios/Runner.xcodeproj -target "$target" \
+                          -configuration Debug -sdk "$sdk" -showBuildSettings 2>/dev/null || true; } \
+                      | awk -F' = ' '/ FULL_PRODUCT_NAME = /{print $2; exit}' )
+            echo "${target} : FULL_PRODUCT_NAME = '${actual}' (attendu '${expected}')"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::${target} : FULL_PRODUCT_NAME='${actual}' au lieu de '${expected}' — PRODUCT_NAME n'est pas résolu (voir apply_build_settings dans ios/scripts/setup_ios_targets.rb)."
+              fail=1
+            fi
+          }
+          check PausePumpWatch   watchsimulator  PausePumpWatch.app
+          check PausePumpWidgets iphonesimulator PausePumpWidgets.appex
+          exit $fail
+
+      # Compilation ISOLÉE de l'app watchOS : pas de Flutter, pas de CocoaPods,
+      # pas de signature. Donne un signal net sur le code Swift de la montre,
+      # indépendamment du build iOS — et reste valable comme repli si un jour
+      # « flutter build ios » ne sait plus embarquer la companion watchOS.
+      # `-target` et non `-scheme` : le script ne crée pas de scheme partagé.
+      # continue-on-error : on veut AUSSI le résultat du build iOS dans le même
+      # run CI (chaque aller-retour coûte 10 min) ; l'échec est refermé plus bas.
+      - name: Build app watchOS (isolé, non signé)
+        id: watch_build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if ! xcodebuild -project ios/Runner.xcodeproj \
+                 -target PausePumpWatch \
+                 -configuration Debug \
+                 -sdk watchsimulator \
+                 -derivedDataPath build/ci-watch \
+                 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+                 build 2>&1 | tee build-watch.log; then
+            echo '---- Erreurs watchOS ----'
+            grep -iE "error:|error \(xcode\)|no such module|cannot find|multiple commands produce" build-watch.log \
+              | grep -vi "warning" | head -10 \
+              | while IFS= read -r line; do echo "::error::watchOS — ${line}"; done
+            tail -n 60 build-watch.log
+            exit 1
+          fi
+
       # Les erreurs de compilation sont réémises en annotations « ::error:: » :
       # elles apparaissent dans l'UI GitHub et restent lisibles via l'API
       # publique (les logs bruts des jobs, eux, exigent une authentification).
@@ -106,3 +157,29 @@ jobs:
             tail -n 80 build-ios.log
             exit 1
           fi
+
+      # Le build peut réussir sans que l'embarquement ait eu lieu : on vérifie
+      # que l'appex et l'app watch sont réellement imbriquées dans Runner.app.
+      - name: Vérifier l'imbrication des bundles
+        run: |
+          set -e
+          app=build/ios/iphoneos/Runner.app
+          for p in "$app/PlugIns/PausePumpWidgets.appex/PausePumpWidgets" \
+                   "$app/Watch/PausePumpWatch.app/PausePumpWatch"; do
+            if [ ! -e "$p" ]; then
+              echo "::error::binaire manquant dans le bundle : ${p}"
+              find "$app/PlugIns" "$app/Watch" -maxdepth 2 2>/dev/null || true
+              exit 1
+            fi
+            echo "OK : ${p}"
+          done
+
+      # Referme l'échec éventuel du build watchOS isolé (continue-on-error).
+      - name: Statut du build watchOS
+        if: always()
+        run: |
+          if [ "${{ steps.watch_build.outcome }}" = "failure" ]; then
+            echo "::error::Le build isolé de l'app watchOS a échoué (voir l'étape « Build app watchOS »)."
+            exit 1
+          fi
+          echo "Build watchOS isolé : ${{ steps.watch_build.outcome }}"
