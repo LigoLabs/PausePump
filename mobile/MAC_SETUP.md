@@ -84,10 +84,10 @@ xcodebuild -project ios/Runner.xcodeproj -target PausePumpWidgets \
 
 # 2. Compilation isolée de l'app watchOS (ni Flutter, ni CocoaPods, ni
 #    signature). `-target` et non `-scheme` : le script ne crée pas de scheme
-#    partagé pour la montre.
+#    partagé pour la montre — et `-derivedDataPath` est alors refusé par
+#    xcodebuild (il exige `-scheme`).
 xcodebuild -project ios/Runner.xcodeproj -target PausePumpWatch \
   -configuration Debug -sdk watchsimulator \
-  -derivedDataPath build/ci-watch \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
   build
 

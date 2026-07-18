@@ -207,7 +207,33 @@ def ensure_copy_files_phase(target, name, dst_subfolder_spec, dst_path)
   # Réappliqué à chaque run (mêmes valeurs → aucun diff).
   phase.dst_subfolder_spec = dst_subfolder_spec
   phase.dst_path = dst_path
+  move_phase_before_thin_binary(target, phase)
   phase
+end
+
+# Replace une phase d'embed AVANT le script « Thin Binary » de Flutter.
+#
+# `new_copy_files_build_phase` ajoute toujours en FIN de liste, donc après ce
+# script — alors que Xcode place systématiquement les phases d'embed avant lui.
+# Or « Thin Binary » (xcode_backend.sh embed_and_thin) déclare le bundle de
+# l'app en entrée (`${TARGET_BUILD_DIR}/${INFOPLIST_PATH}`) : une phase qui
+# écrit DANS ce bundle après coup ferme le graphe de dépendances et xcodebuild
+# s'arrête sur « Cycle inside Runner; building could produce unreliable
+# results ».
+#
+# `ObjectList#move` fait un delete + insert ; c'est sûr ici : `remove_referrer`
+# ne retire l'objet du projet que si son compteur tombe à zéro, et l'`insert`
+# qui suit le ré-enregistre aussitôt (`add_referrer`).
+def move_phase_before_thin_binary(target, phase)
+  phases = target.build_phases
+  thin_index = phases.index { |p| p.respond_to?(:name) && p.name == 'Thin Binary' }
+  return if thin_index.nil? # pas un projet Flutter : rien à réordonner
+
+  current = phases.index(phase)
+  return if current.nil? || current < thin_index # déjà au bon endroit
+
+  phases.move(phase, thin_index)
+  added("phase « #{phase.name} » déplacée avant « Thin Binary »")
 end
 
 # Embarque le produit d'une target (…appex / ….app) dans une phase copy files.
@@ -460,6 +486,15 @@ def main
     puts "Déjà en place (#{$existing.size}) :"
     $existing.each { |m| puts "  = #{m}" }
   end
+  # L'ordre des phases de Runner conditionne l'absence de cycle de build :
+  # on l'imprime pour qu'un échec futur soit diagnosticable depuis le log CI.
+  puts ''
+  puts 'Phases de build de Runner (les « Embed … » doivent précéder « Thin Binary ») :'
+  runner.build_phases.each_with_index do |p, i|
+    label = (p.respond_to?(:name) && p.name) ? p.name : p.display_name
+    puts "  #{i}. #{label}"
+  end
+
   puts ''
   puts 'Rappel : relancez ce script après tout ajout de fichier Swift natif ou après « flutter create ».'
 end

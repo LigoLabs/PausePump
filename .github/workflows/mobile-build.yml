@@ -119,7 +119,8 @@ jobs:
       # pas de signature. Donne un signal net sur le code Swift de la montre,
       # indépendamment du build iOS — et reste valable comme repli si un jour
       # « flutter build ios » ne sait plus embarquer la companion watchOS.
-      # `-target` et non `-scheme` : le script ne crée pas de scheme partagé.
+      # `-target` et non `-scheme` : le script ne crée pas de scheme partagé
+      # (et `-derivedDataPath` est alors refusé : il exige `-scheme`).
       # continue-on-error : on veut AUSSI le résultat du build iOS dans le même
       # run CI (chaque aller-retour coûte 10 min) ; l'échec est refermé plus bas.
       - name: Build app watchOS (isolé, non signé)
@@ -131,7 +132,6 @@ jobs:
                  -target PausePumpWatch \
                  -configuration Debug \
                  -sdk watchsimulator \
-                 -derivedDataPath build/ci-watch \
                  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
                  build 2>&1 | tee build-watch.log; then
             echo '---- Erreurs watchOS ----'
