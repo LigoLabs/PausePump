@@ -3,8 +3,7 @@ name: Build mobile
 on:
   push:
     branches:
-      - claude/pausepump-rest-timer-xvxn1n
-      - main
+      - master
     paths:
       - "mobile/**"
       - ".github/workflows/mobile-build.yml"
