@@ -6,8 +6,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 
 /**
  * Service de premier plan affichant une notification persistante dont le
@@ -37,7 +40,28 @@ class TimerService : Service() {
         val end = intent?.getLongExtra(EXTRA_END, 0L) ?: 0L
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "PausePump"
         val label = intent?.getStringExtra(EXTRA_LABEL) ?: ""
-        startForeground(NOTIF_ID, buildNotification(title, label, end))
+        // Passage en premier plan protégé : sur Android 12+, un FGS refusé
+        // (démarrage depuis l'arrière-plan, restriction OEM/type, permission
+        // révoquée…) lève une exception SUR LE THREAD NATIF — non rattrapable
+        // côté Dart. Le service n'est qu'un confort (chrono natif) : le timer
+        // tourne de toute façon via le ticker Dart + la notif planifiée. On
+        // dégrade donc en silence plutôt que de faire planter l'app.
+        try {
+            ServiceCompat.startForeground(
+                this,
+                NOTIF_ID,
+                buildNotification(title, label, end),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                } else {
+                    0
+                },
+            )
+        } catch (e: Exception) {
+            Log.w("TimerService", "startForeground refusé : ${e.message}")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         return START_STICKY
     }
 

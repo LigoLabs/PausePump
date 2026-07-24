@@ -284,7 +284,13 @@ body { display: flex; min-height: 100%; }
   border-bottom-width: 2px;
   border-radius: 6px;
 }
-@media (pointer: coarse) { .kbd-hint { display: none !important; } }
+/* Indice clavier au doigt / indice « double tap » à la souris : on n'en montre
+   qu'un seul, selon le type de pointeur. */
+.kbd-hint .hint-touch { display: none; }
+@media (pointer: coarse) {
+  .kbd-hint .hint-desktop { display: none; }
+  .kbd-hint .hint-touch { display: inline; }
+}
 
 /* ---------- Écran « Fais ta série » (mode Pause seule) ---------- */
 .doset-view { gap: 4px; text-align: center; padding: 0 6px; }

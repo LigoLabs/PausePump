@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -42,8 +44,14 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _settings = storage.loadSettings();
     _lastPause = storage.loadLastPause();
     mode = storage.loadMode() == 'effort' ? SessionMode.effort : SessionMode.pause;
+    seriesSel = storage.loadSeries();
+    effortSel = storage.loadEffort();
+    restSel = storage.loadRest();
+    effortAuto = storage.loadEffortAuto();
     WidgetsBinding.instance.addObserver(this);
     liveActivity.end(); // activité orpheline d'un lancement précédent
+    notifications.cancelAll(); // notif de fin orpheline d'un timer tué
+    audio.prepareAlarm(_settings.alarm); // bip prêt → part sans délai
     _pushWatchContext();
   }
 
@@ -65,6 +73,18 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   int _lastPause = 60;
   int effortSel = 60;
   int restSel = 60;
+  int seriesSel = 3; // dernier nombre de séries choisi (persisté)
+
+  /// Durées proposées dans les grilles : les timers enregistrés, triés.
+  List<int> get timers => _settings.sortedTimers;
+
+  /// Message éphémère à afficher (snackbar) — consommé par l'UI.
+  String? toastMessage;
+  String? consumeToast() {
+    final m = toastMessage;
+    toastMessage = null;
+    return m;
+  }
 
   // ---- État de séance ----
   bool inSession = false;
@@ -91,6 +111,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   // ---- Overlay « 3, 2, 1 » ----
   int? countdownValue; // null = pas de décompte ; -1 = « GO »
   Timer? _countdownTimer;
+  VoidCallback? _countdownDone;
 
   int get lastPause => _lastPause;
   bool get isEnding => remaining <= 5 && remaining > 0;
@@ -106,8 +127,22 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   //  Réglages
   // ===========================================================================
   Future<void> updateSettings(AppSettings s) async {
+    final old = _settings;
     _settings = s;
     await storage.saveSettings(s);
+    if (s.alarm != old.alarm) audio.prepareAlarm(s.alarm);
+    // Effets immédiats, comme sur le web (wake lock, notif replanifiée…).
+    if (!s.keepAwake) {
+      wakelock.disable();
+    } else if (running) {
+      wakelock.enable();
+    }
+    if (!s.notify) {
+      notifications.cancelEnd();
+    } else if (running && _endTime != null && !_foreground) {
+      _scheduleEndNotification(); // nouveau son / réglage de notif pris en compte
+    }
+    if (s.notify && !old.notify) notifications.requestPermission();
     _pushWatchContext();
     notifyListeners();
   }
@@ -119,6 +154,12 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     mode = m;
     await storage.saveMode(m.name);
     _pushWatchContext();
+    notifyListeners();
+  }
+
+  void setSeriesSel(int n) {
+    seriesSel = n;
+    storage.saveSeries(n);
     notifyListeners();
   }
 
@@ -147,16 +188,19 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
 
   void setEffortAuto(bool v) {
     effortAuto = v;
+    storage.saveEffortAuto(v);
     notifyListeners();
   }
 
   void setEffortSel(int d) {
     effortSel = d;
+    storage.saveEffort(d);
     notifyListeners();
   }
 
   void setRestSel(int d) {
     restSel = d;
+    storage.saveRest(d);
     notifyListeners();
   }
 
@@ -234,6 +278,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     // Effort + Pause, étape par étape
     if (_pickPhase == Phase.effort) {
       effortSel = d;
+      storage.saveEffort(d);
       if (_settings.prepCountdown) {
         _runCountdown(kCountdownPrep, () => _startPhase(Phase.effort, d));
       } else {
@@ -241,6 +286,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } else {
       restSel = d;
+      storage.saveRest(d);
       _startPhase(Phase.pause, d);
     }
   }
@@ -266,7 +312,13 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _endTime = DateTime.now().add(
       Duration(milliseconds: (remaining * 1000).round()),
     );
-    _scheduleEndNotification();
+    // Re-précharge le bip (un aperçu dans les réglages a pu charger un autre
+    // son) : la fin de phase doit sonner sans délai.
+    if (_settings.sound) audio.prepareAlarm(_settings.alarm);
+    // La notif de fin n'est armée qu'en arrière-plan (comme le web au
+    // visibilitychange) : au 1er plan le bip in-app sonne, et planifier une
+    // notif au même instant créerait une course (bip + notif = double son).
+    if (!_foreground) _scheduleEndNotification();
     // Chrono natif dans la notification persistante (Android).
     foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
     // Chrono natif sur l'écran verrouillé / Dynamic Island (iOS).
@@ -306,7 +358,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     remaining = durationSec.toDouble();
     if (running) {
       _endTime = DateTime.now().add(Duration(seconds: durationSec));
-      _scheduleEndNotification();
+      if (!_foreground) _scheduleEndNotification();
       foreground.start(_endTime!, title: 'PausePump', label: _phaseLabel());
       _liveActivityStart();
     } else {
@@ -387,15 +439,31 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void _onPhaseComplete() {
+  /// [playAlarm] : false au rattrapage de retour au 1er plan — la fin a déjà
+  /// sonné à l'heure pile en arrière-plan, on ne rejoue pas le bip.
+  void _onPhaseComplete({bool playAlarm = true}) {
     running = false;
     _stopTicker();
-    // En 1er plan, on joue le bip et on annule la notif (sinon double son).
     if (_foreground) {
+      // 1er plan : le bip in-app sonne (flux média — l'app est visible, comme
+      // le web) ; la notif planifiée n'a plus lieu d'être.
       notifications.cancelEnd();
-      if (_settings.sound) audio.playAlarm(_settings.alarm, _settings.volume);
+      if (playAlarm && _settings.sound) {
+        audio.playAlarm(_settings.alarm, _settings.volume);
+      }
       if (_settings.vibrate) HapticFeedback.heavyImpact();
+    } else if (playAlarm && !kIsWeb && Platform.isAndroid && !_settings.notify) {
+      // Arrière-plan, notifs désactivées : aucune notif armée — le bip in-app
+      // (process vivant sous le foreground service) reste le seul signal.
+      if (_settings.sound) {
+        audio.playAlarm(_settings.alarm, _settings.volume);
+      }
     }
+    // Arrière-plan avec notifs : on ne touche à RIEN — la notif planifiée
+    // délivrée par l'OS porte le son (canal alarme → flux ALARME, audible
+    // écran verrouillé et volume média à zéro). L'ancien comportement
+    // (cancelEnd + bip in-app sur le flux MÉDIA) coupait le son d'alarme
+    // au bout de quelques ms et le remplaçait par un bip souvent inaudible.
     _advancePhase();
   }
 
@@ -455,10 +523,28 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     _advancePhase();
   }
 
+  /// ⟲ Durée : revient au choix de durée de l'étape en cours (port de
+  /// `backToChoice` web) sans faire avancer la séance.
+  void backToChoice() {
+    pause();
+    if (mode == SessionMode.pause) {
+      _showDurationPick(Phase.pause);
+      return;
+    }
+    if (effortAuto) {
+      step = SessionStep.setup;
+      notifyListeners();
+    } else {
+      _showDurationPick(phase); // re-choisir la durée de l'étape en cours
+    }
+  }
+
   void _finish() {
     _stopTicker();
     running = false;
-    notifications.cancelAll();
+    // En arrière-plan, la notif de fin vient d'être délivrée (c'est elle qui
+    // sonne) : l'annuler ici couperait le bip. Le retour au 1er plan purge.
+    if (_foreground) notifications.cancelAll();
     foreground.stop();
     liveActivity.end();
     wakelock.disable();
@@ -466,6 +552,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
       step = SessionStep.done;
     } else {
       inSession = false; // retour accueil
+      toastMessage = 'Séance terminée 🎉';
     }
     notifyListeners();
   }
@@ -520,6 +607,7 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   // ===========================================================================
   void _runCountdown(int from, VoidCallback onDone) {
     _countdownTimer?.cancel();
+    _countdownDone = onDone;
     countdownValue = from;
     _countBeep(false);
     _haptic();
@@ -532,11 +620,9 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
         _countBeep(true);
         if (_settings.vibrate) HapticFeedback.mediumImpact();
         notifyListeners();
-        Future.delayed(const Duration(milliseconds: 550), () {
-          countdownValue = null;
-          notifyListeners();
-          onDone();
-        });
+        // Timer (et non Future.delayed) : annulable par skip/dispose, sinon
+        // un callback périmé pourrait relancer après coup.
+        _countdownTimer = Timer(const Duration(milliseconds: 550), _launchCountdown);
       } else {
         countdownValue = v;
         _countBeep(false);
@@ -546,27 +632,43 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /// Tap sur l'overlay : on démarre tout de suite (comme le web).
+  void skipCountdown() => _launchCountdown();
+
+  void _launchCountdown() {
+    final done = _countdownDone;
+    if (done == null) return; // déjà lancé
+    _countdownDone = null;
+    _countdownTimer?.cancel();
+    countdownValue = null;
+    notifyListeners();
+    done();
+  }
+
   // ===========================================================================
   //  Cycle de vie applicatif
   // ===========================================================================
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final wasForeground = _foreground;
     _foreground = state == AppLifecycleState.resumed;
-    if (_foreground) {
-      notifications.cancelAll();
-      if (running && _endTime != null) {
-        // Rattrapage : le décompte a pu se figer en arrière-plan.
-        remaining = _endTime!.difference(DateTime.now()).inMilliseconds / 1000.0;
-        if (remaining <= 0) {
-          remaining = 0;
-          _onPhaseComplete();
-        } else {
-          // cancelAll() vient de supprimer la notif de fin planifiée : on la
-          // réarme tant que le décompte court (sinon plus de bip si l'app
-          // repasse en arrière-plan sans changer de phase).
-          _scheduleEndNotification();
-          notifyListeners();
-        }
+    if (!_foreground) {
+      // Passage en arrière-plan : on arme la notif de fin maintenant (émise
+      // une seule fois, comme le web sur visibilitychange).
+      if (wasForeground && running && _endTime != null) {
+        _scheduleEndNotification();
+      }
+      return;
+    }
+    notifications.cancelAll();
+    if (running && _endTime != null) {
+      // Rattrapage : le décompte a pu se figer en arrière-plan.
+      remaining = _endTime!.difference(DateTime.now()).inMilliseconds / 1000.0;
+      if (remaining <= 0) {
+        remaining = 0;
+        _onPhaseComplete(playAlarm: false); // la notif a déjà sonné
+      } else {
+        notifyListeners();
       }
     }
   }
@@ -574,15 +676,24 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
   // ===========================================================================
   //  Helpers
   // ===========================================================================
-  void _scheduleEndNotification() {
-    if (!_settings.notify || _endTime == null) return;
+  /// Corps de la notif de fin pour la phase EN COURS (avant transition).
+  String get _endBody {
     final label = mode == SessionMode.effort
         ? (phase == Phase.effort ? 'Effort terminé 💪' : 'Pause terminée 😮‍💨')
         : 'Pause terminée';
+    return '$label • à toi de jouer !';
+  }
+
+  void _scheduleEndNotification() {
+    if (!_settings.notify || _endTime == null) return;
     notifications.scheduleEnd(
       _endTime!,
-      body: '$label • à toi de jouer !',
-      iosSound: _settings.alarm.iosSoundFile,
+      body: _endBody,
+      // Bip perso activé → la notif joue le bip de l'app, quel que soit le
+      // réglage « Son à la notification » (qui ne gouverne que la tonalité
+      // système de secours) — parité web : le bip perso sonne toujours.
+      alarm: _settings.sound ? _settings.alarm : null,
+      playSound: _settings.sound || _settings.notifySound,
     );
   }
 

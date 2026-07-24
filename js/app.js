@@ -274,7 +274,12 @@ function markDurationDefault() {
     c.classList.toggle('selected', Number(c.dataset.dur) === d);
   });
   const hint = $('#duration-hint');
-  if (hint) hint.innerHTML = d ? `<kbd>Espace</kbd> relancer ${formatTime(d)}` : '';
+  if (hint) {
+    hint.innerHTML = d
+      ? `<span class="hint-desktop"><kbd>Espace</kbd> relancer ${formatTime(d)}</span>`
+        + `<span class="hint-touch">Double tap pour relancer ${formatTime(d)}</span>`
+      : '';
+  }
 }
 // Mode Pause seule : écran « Fais ta série » avant de lancer la pause.
 function showDoSet() {
@@ -872,27 +877,60 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', clearAllNotificationsSoon);
 window.addEventListener('pageshow', clearAllNotificationsSoon);
 
-// Raccourci clavier Espace (ex. télécommande/clicker Bluetooth à la salle) :
+// Action « la suite » — mémorise la dernière durée choisie et enchaîne :
 // - écran « Fais ta série » → valide la série
 // - écran de choix de durée → lance la dernière durée sélectionnée
 // - écran de fin de séance → recommence la séance
+// Deux déclencheurs : la touche Espace (desktop / clicker Bluetooth à la salle)
+// et le double tap (mobile). Renvoie true si quelque chose a été déclenché.
+function quickAdvance() {
+  if (!$('#settings-modal').hidden) return false;      // modale options ouverte
+  if (!$('#screen-main').classList.contains('is-active')) return false;
+  if (views.doset.classList.contains('is-active')) {
+    $('#doset-done').click();                          // valide la série
+    return true;
+  }
+  if (views.duration.classList.contains('is-active')) {
+    getAudioCtx();
+    pickDuration(currentDefaultDuration());            // lance la dernière durée
+    return true;
+  }
+  if (views.done.classList.contains('is-active')) {
+    $('#done-restart').click();                        // recommence la séance
+    return true;
+  }
+  return false;
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' && e.key !== ' ' && e.key !== 'Spacebar') return;
   const t = e.target;
   const tag = (t && t.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;
-  if (!$('#settings-modal').hidden) return;            // modale options ouverte
-  if (!$('#screen-main').classList.contains('is-active')) return;
-  if (views.doset.classList.contains('is-active')) {
-    e.preventDefault();
-    $('#doset-done').click();                          // valide la série
-  } else if (views.duration.classList.contains('is-active')) {
-    e.preventDefault();
-    getAudioCtx();
-    pickDuration(currentDefaultDuration());            // lance la dernière durée
-  } else if (views.done.classList.contains('is-active')) {
-    e.preventDefault();
-    $('#done-restart').click();                        // recommence la séance
+  if (quickAdvance()) e.preventDefault();
+});
+
+// Double tap n'importe où sur l'écran de séance = équivalent tactile d'Espace.
+// On ignore les taps sur un élément interactif (bouton, cellule de durée…),
+// qui font déjà leur propre action au premier tap.
+const DOUBLE_TAP_MS = 400;      // délai max entre les deux taps
+const DOUBLE_TAP_PX = 60;       // écart max entre les deux points
+let lastTap = { t: 0, x: 0, y: 0 };
+$('#screen-main').addEventListener('click', (e) => {
+  if (e.target.closest('button, a, input, select, textarea, label, [role="button"], .duration-cell')) {
+    lastTap = { t: 0, x: 0, y: 0 };
+    return;
+  }
+  const now = Date.now();
+  const x = e.clientX, y = e.clientY;
+  const isDouble = now - lastTap.t < DOUBLE_TAP_MS
+    && Math.abs(x - lastTap.x) < DOUBLE_TAP_PX
+    && Math.abs(y - lastTap.y) < DOUBLE_TAP_PX;
+  if (isDouble) {
+    lastTap = { t: 0, x: 0, y: 0 };                    // pas de triple tap
+    quickAdvance();
+  } else {
+    lastTap = { t: now, x, y };
   }
 });
 
