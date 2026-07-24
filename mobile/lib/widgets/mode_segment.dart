@@ -35,17 +35,18 @@ class ModeSegment extends StatelessWidget {
         onTap: () => onChanged(m),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? AppColors.bgElev2 : Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             label,
             style: TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: selected ? AppColors.accent : AppColors.textDim,
+              color: selected ? AppColors.text : AppColors.textDim,
             ),
           ),
         ),

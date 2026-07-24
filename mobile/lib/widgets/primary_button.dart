@@ -27,7 +27,7 @@ class PrimaryButton extends StatelessWidget {
           disabledBackgroundColor: color.withValues(alpha: 0.35),
           padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           elevation: 0,
         ),
         child: Text(label),

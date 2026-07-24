@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les WAV de raw/ ne sont référencés que DYNAMIQUEMENT (son des canaux de
+     notification, résolu par nom à l'affichage) : sans ce keep, le resource
+     shrinker des builds release les supprime de l'APK et la notification de
+     fin devient muette (échec silencieux de la planification). -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/*" />

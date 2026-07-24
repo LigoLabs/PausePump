@@ -41,6 +41,17 @@ flutter run -d ios          # iOS
 flutter run -d android      # Android
 ```
 
+## 2b) Icônes & publication
+
+```bash
+node scripts/gen_icons.js   # régénère TOUTES les icônes natives (Android,
+                            # iOS, watchOS, fiches store) depuis le design PWA
+```
+
+Pour publier sur le Play Store / App Store : voir **[PUBLISHING.md](PUBLISHING.md)**
+(signature Android via `android/key.properties` + `upload-keystore.jks`,
+gitignorés — à sauvegarder hors du repo !).
+
 ## 3) Config native (à faire une fois, après `flutter create`)
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
@@ -92,7 +103,10 @@ lib/
                              # live_activity (chrono natif iOS),
                              # watch_sync (config → Apple Watch)
   screens/ · widgets/        # UI (étapes : setup/duration/doSet/timer/done)
-  assets/sounds/             # bips WAV (triple, cloche, tick, go)
+  assets/sounds/             # bips WAV : les 7 alarmes générées par
+                             # scripts/gen_sounds.js (aussi copiées dans
+                             # android/…/res/raw/ pour le son des notifs en
+                             # arrière-plan) + tick/go du décompte (fixes)
 
 ios/
   Runner/                    # AppDelegate + bridges Swift :
@@ -114,7 +128,9 @@ répercutée dans les trois.
 
 ### Chrono natif en arrière-plan (le « truc » par plateforme)
 - **Android** : foreground service + `setChronometerCountDown` → la notification
-  défile sans réveiller le Dart (`TimerService.kt`).
+  défile sans réveiller le Dart (`TimerService.kt`). La notification **planifiée**
+  de fin joue le bip de l'app (WAV dans `res/raw`, un canal par son — le son
+  d'un canal est figé à sa création).
 - **iOS** : Live Activity + `Text(timerInterval:)` → l'écran verrouillé et la
   Dynamic Island défilent sans réveiller l'app ; la notification **planifiée**
   (`zonedSchedule`, son WAV custom, time-sensitive) sonne à l'heure pile.
@@ -128,8 +144,8 @@ répercutée dans les trois.
 - ~~Foreground service Android (chrono natif dans la notification)~~ ✅
 - ~~iOS Live Activities (lock screen + Dynamic Island)~~ ✅
 - ~~App Apple Watch (séance autonome, picker de durées en swipe)~~ ✅
-- Écran **Réglages** complet (sons, vibration, volume, écrans optionnels).
-- Sélecteur de **son** + aperçu, et plus de timbres.
+- ~~Écran **Réglages** complet (sons, vibration, volume, timers, écrans optionnels)~~ ✅
+- ~~Sélecteur de **son** + aperçu, et plus de timbres~~ ✅ (les 7 sons du web)
 - Complications montre (lancement rapide) & App Intents (Siri « lance ma pause »).
 - Montre : écran de réglage des durées **Effort + Pause** (v1 : durées par
   défaut en enchaînement auto) et pré-planification de **toutes** les

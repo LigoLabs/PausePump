@@ -5,16 +5,10 @@ import '../state/timer_controller.dart';
 import '../theme.dart';
 import '../widgets/mode_segment.dart';
 import '../widgets/primary_button.dart';
+import 'settings_sheet.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _series = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -24,42 +18,79 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: Column(
                 children: [
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Icon(Icons.settings, color: AppColors.text),
-                  ),
-                  const SizedBox(height: 12),
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800),
-                      children: [
-                        TextSpan(text: 'Pause', style: TextStyle(color: AppColors.text)),
-                        TextSpan(text: 'Pump', style: TextStyle(color: AppColors.accent)),
-                      ],
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          // Bouton Options en haut à droite (48×48, comme le web)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () => showSettingsSheet(context),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.bgElev2,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                      color: const Color(0x0DFFFFFF)),
+                                ),
+                                child: const Icon(Icons.settings,
+                                    size: 24, color: AppColors.text),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 38.4,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                              children: [
+                                TextSpan(
+                                    text: 'Pause',
+                                    style: TextStyle(color: AppColors.text)),
+                                TextSpan(
+                                    text: 'Pump',
+                                    style: TextStyle(color: AppColors.accent)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Gère tes pauses & efforts 💪',
+                            style: TextStyle(
+                                color: AppColors.textDim, fontSize: 16.8),
+                          ),
+                          const SizedBox(height: 22),
+                          ModeSegment(value: c.mode, onChanged: c.setMode),
+                          const SizedBox(height: 22),
+                          const Text(
+                            'Combien de séries ?',
+                            style: TextStyle(
+                                fontSize: 20.8, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 16),
+                          _seriesGrid(c),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Gère tes pauses & efforts 💪',
-                    style: TextStyle(color: AppColors.textDim, fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  ModeSegment(value: c.mode, onChanged: c.setMode),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Combien de séries ?',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
                   const SizedBox(height: 16),
-                  _seriesGrid(),
-                  const SizedBox(height: 28),
+                  // CTA ancré en bas de l'écran, comme le web (margin-top auto)
                   PrimaryButton(
                     label: "C'est parti",
-                    onPressed: _series < 1 ? null : () => c.startSession(_series),
+                    onPressed: c.seriesSel < 1
+                        ? null
+                        : () => c.startSession(c.seriesSel),
                   ),
                 ],
               ),
@@ -70,34 +101,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _seriesGrid() {
+  Widget _seriesGrid(TimerController c) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 3,
       mainAxisSpacing: 14,
       crossAxisSpacing: 14,
-      childAspectRatio: 1.1,
       children: [
         for (final n in kSeriesChoices)
           GestureDetector(
-            onTap: () => setState(() => _series = n),
+            onTap: () => c.setSeriesSel(n),
             child: Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: _series == n ? AppColors.bgElev2 : AppColors.bgElev,
+                color: c.seriesSel == n ? AppColors.bgElev2 : AppColors.bgElev,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: _series == n ? AppColors.accent : Colors.transparent,
+                  color: c.seriesSel == n
+                      ? AppColors.accent
+                      : Colors.transparent,
                   width: 2,
                 ),
               ),
               child: Text(
                 '$n',
                 style: TextStyle(
-                  fontSize: 30,
+                  fontSize: 32,
                   fontWeight: FontWeight.w800,
-                  color: _series == n ? AppColors.accent : AppColors.text,
+                  color: c.seriesSel == n ? AppColors.accent : AppColors.text,
                 ),
               ),
             ),

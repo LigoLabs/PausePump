@@ -39,6 +39,8 @@ Future<void> main() async {
   );
 }
 
+final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
 class PausePumpApp extends StatelessWidget {
   const PausePumpApp({super.key});
 
@@ -47,22 +49,38 @@ class PausePumpApp extends StatelessWidget {
     return MaterialApp(
       title: 'PausePump',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: _messengerKey,
       theme: buildTheme(),
       home: const _Root(),
     );
   }
 }
 
-/// Bascule accueil / séance selon l'état du contrôleur.
+/// Bascule accueil / séance selon l'état du contrôleur, et affiche les
+/// messages éphémères (snackbar façon web : fond accent, texte sombre).
 class _Root extends StatelessWidget {
   const _Root();
 
   @override
   Widget build(BuildContext context) {
-    final inSession = context.select<TimerController, bool>((c) => c.inSession);
+    final c = context.watch<TimerController>();
+    final toast = c.consumeToast();
+    if (toast != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _messengerKey.currentState?.showSnackBar(SnackBar(
+          content: Text(toast,
+              style: const TextStyle(
+                  color: Color(0xFF04130F), fontWeight: FontWeight.w700)),
+          backgroundColor: AppColors.accent,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ));
+      });
+    }
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
-      child: inSession ? const SessionScreen() : const HomeScreen(),
+      child: c.inSession ? const SessionScreen() : const HomeScreen(),
     );
   }
 }
