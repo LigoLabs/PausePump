@@ -14,16 +14,20 @@ const path = require('path');
 const { encodePNG, decodePNG } = require('./png');
 
 const STATUS_BAR = 140;          // hauteur de la barre d'état à retirer (px)
-const MAX_RATIO = 2.0;           // hauteur / largeur maximale tolérée par Play
 const BG = [15, 18, 25];         // #0f1219, le fond de l'app
 
 function toStoreFormat(buf) {
   const src = decodePNG(buf);
   const top = Math.min(STATUS_BAR, src.height - 1);
-  const h = src.height - top;
-  // Largeur minimale pour respecter le ratio (on n'élargit jamais moins que
-  // l'original : une capture déjà conforme est simplement recadrée).
-  const w = Math.max(src.width, Math.ceil(h / MAX_RATIO));
+  // Play exige un ratio 9:16 EXACT en portrait. On rogne la hauteur au
+  // multiple de 16 inférieur, ce qui donne une largeur entière (h/16*9), puis
+  // on complète les côtés avec le fond de l'app — invisible, et aucun contenu
+  // perdu (un recadrage vertical, lui, couperait des boutons).
+  const h = Math.floor((src.height - top) / 16) * 16;
+  const w = (h / 16) * 9;
+  if (w < src.width) {
+    throw new Error(`capture trop large pour un 9:16 sans perte : ${src.width}px > ${w}px`);
+  }
   const padLeft = Math.floor((w - src.width) / 2);
 
   const out = Buffer.alloc(w * h * 4);

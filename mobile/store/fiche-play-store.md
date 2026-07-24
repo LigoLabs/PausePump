@@ -1,8 +1,18 @@
 # Fiche Play Store — PausePump
 
 Textes prêts à copier-coller dans Play Console.
-Assets : `store/play-icon-512.png`, `store/feature-graphic-1024x500.png`,
-`store/screenshots/*.png` (5 captures, 1130×2260, conformes au ratio 2:1).
+
+## Fichiers à glisser dans la fiche (dans cet ordre)
+
+| Champ Play Console | Fichier |
+|---|---|
+| Icône de l'application | `store/play-icon-512.png` (512×512) |
+| Image de présentation | `store/feature-graphic-1024x500.png` (1024×500) |
+| Captures d'écran pour téléphone | les 5 fichiers de `store/screenshots/` |
+
+Les captures font **1269×2256 = 9:16 exact**, le ratio qu'exige Play (une
+capture brute de Pixel, en 1080×2400, serait refusée). Régénérables via
+`node scripts/crop_screenshots.js <captures brutes...>`.
 
 ## Nom de l'application (max 30)
 ```
