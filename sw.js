@@ -18,6 +18,7 @@ const ASSETS = [
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
   './icons/badge-96.png',
+  './privacy.html',
 ];
 
 self.addEventListener('install', (event) => {
