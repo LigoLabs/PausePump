@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond de l'icône adaptive : le sombre de l'app (#0f1219). -->
+    <color name="ic_launcher_background">#0F1219</color>
+</resources>

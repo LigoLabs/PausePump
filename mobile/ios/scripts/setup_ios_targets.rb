@@ -13,7 +13,7 @@
 # Ce qu'il fait :
 #   a) Target Runner : ajoute les ponts natifs (LiveActivityBridge,
 #      WatchSyncBridge, RestTimerAttributes), les sons de notification
-#      (triple.wav, bell.wav — copiés dans le bundle) et l'entitlement
+#      (les WAV de SOUND_FILES — copiés dans le bundle) et l'entitlement
 #      « notifications time-sensitive » (Runner.entitlements).
 #   b) Target PausePumpWidgets : extension WidgetKit (Live Activity /
 #      Dynamic Island), créée si absente, embarquée dans Runner.
@@ -62,7 +62,7 @@ RUNNER_SWIFT_FILES = %w[
 SHARED_ATTRIBUTES_FILE = File.join(IOS_DIR, 'Runner', 'RestTimerAttributes.swift')
 
 # Sons de notification, copiés comme ressources du bundle Runner.
-SOUND_FILES = %w[triple.wav bell.wav]
+SOUND_FILES = %w[triple.wav marimba.wav bell.wav carillon.wav aigu.wav grave.wav montee.wav]
               .map { |f| File.join(MOBILE_DIR, 'assets', 'sounds', f) }.freeze
 
 WIDGETS_DIR      = File.join(IOS_DIR, 'PausePumpWidgets')
@@ -379,6 +379,16 @@ def setup_watch_target(project, runner)
   # Info.plist : référence seule (voir remarque côté widget).
   ensure_file_reference(watch_group, File.join(WATCH_DIR, 'Info.plist'))
 
+  # Ressources embarquées : l'icône d'app (l'App Store refuse une app watch
+  # sans AppIcon propre) et le manifeste de confidentialité (WatchSessionModel
+  # touche UserDefaults — required-reason API, motif CA92.1).
+  [File.join(WATCH_DIR, 'Assets.xcassets'),
+   File.join(WATCH_DIR, 'PrivacyInfo.xcprivacy')].each do |abs|
+    ref = ensure_file_reference(watch_group, abs)
+    ensure_build_file(watch.resources_build_phase, ref,
+                      "#{WATCH_TARGET_NAME}/Resources : #{File.basename(abs)}")
+  end
+
   apply_build_settings(watch,
                        # ---------------------------------------------------------------
                        # PRODUCT_NAME : INDISPENSABLE, ne pas retirer.
@@ -416,12 +426,9 @@ def setup_watch_target(project, runner)
                        # Release (flutter build ipa).
                        'SUPPORTED_PLATFORMS'       => 'watchos watchsimulator',
                        'SUPPORTS_MACCATALYST'      => 'NO',
-                       # xcodeproj pose ASSETCATALOG_COMPILER_APPICON_NAME =
-                       # AppIcon pour toute target :application ; cette app
-                       # watch n'a aucun asset catalog → on neutralise, sinon
-                       # l'ajout futur d'un .xcassets ferait échouer la
-                       # compilation du catalogue sur une icône absente.
-                       'ASSETCATALOG_COMPILER_APPICON_NAME' => '',
+                       # L'app watch embarque son Assets.xcassets (AppIcon
+                       # généré par scripts/gen_icons.js) : exigence App Store.
+                       'ASSETCATALOG_COMPILER_APPICON_NAME' => 'AppIcon',
                        'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => '',
                        'CODE_SIGN_STYLE'           => 'Automatic',
                        'CURRENT_PROJECT_VERSION'   => '1',
