@@ -452,16 +452,20 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
         audio.playAlarm(_settings.alarm, _settings.volume);
       }
       if (_settings.vibrate) HapticFeedback.heavyImpact();
-    } else if (playAlarm && !kIsWeb && Platform.isAndroid && !_settings.notify) {
-      // Arrière-plan, notifs désactivées : aucune notif armée — le bip in-app
-      // (process vivant sous le foreground service) reste le seul signal.
+    } else if (playAlarm &&
+        !kIsWeb &&
+        Platform.isAndroid &&
+        (!_settings.notify || _endNotifSilent)) {
+      // Arrière-plan sans notif SONORE armée (notifs désactivées, ou notif
+      // planifiée muette parce que des écouteurs sont branchés) : le bip
+      // in-app est le signal — flux média, il sort dans les écouteurs.
       if (_settings.sound) {
         audio.playAlarm(_settings.alarm, _settings.volume);
       }
     }
-    // Arrière-plan avec notifs : on ne touche à RIEN — la notif planifiée
-    // délivrée par l'OS porte le son (canal alarme → flux ALARME, audible
-    // écran verrouillé et volume média à zéro). L'ancien comportement
+    // Arrière-plan avec notif sonore : on ne touche à RIEN — la notif
+    // planifiée délivrée par l'OS porte le son (canal alarme → flux ALARME,
+    // audible écran verrouillé et volume média à zéro). L'ancien comportement
     // (cancelEnd + bip in-app sur le flux MÉDIA) coupait le son d'alarme
     // au bout de quelques ms et le remplaçait par un bip souvent inaudible.
     _advancePhase();
@@ -684,16 +688,29 @@ class TimerController extends ChangeNotifier with WidgetsBindingObserver {
     return '$label • à toi de jouer !';
   }
 
-  void _scheduleEndNotification() {
+  /// La notif de fin a-t-elle été planifiée MUETTE (écouteurs branchés) ?
+  /// Dans ce cas le bip in-app reste le signal sonore à la fin de phase.
+  bool _endNotifSilent = false;
+
+  Future<void> _scheduleEndNotification() async {
     if (!_settings.notify || _endTime == null) return;
+    // Écouteurs branchés : le son de la notif sort sur le flux ALARME, donc
+    // du haut-parleur du téléphone même avec un casque Bluetooth (choix
+    // d'Android pour les alarmes) — gênant à la salle. On planifie alors la
+    // notif muette : c'est le bip in-app (flux média → écouteurs) qui sonne.
+    final headphones =
+        !kIsWeb && Platform.isAndroid && await foreground.hasHeadphones();
+    _endNotifSilent = headphones;
+    final when = _endTime;
+    if (when == null) return; // la phase a pu s'arrêter pendant l'await
     notifications.scheduleEnd(
-      _endTime!,
+      when,
       body: _endBody,
       // Bip perso activé → la notif joue le bip de l'app, quel que soit le
       // réglage « Son à la notification » (qui ne gouverne que la tonalité
       // système de secours) — parité web : le bip perso sonne toujours.
-      alarm: _settings.sound ? _settings.alarm : null,
-      playSound: _settings.sound || _settings.notifySound,
+      alarm: (_settings.sound && !headphones) ? _settings.alarm : null,
+      playSound: !headphones && (_settings.sound || _settings.notifySound),
     );
   }
 

@@ -34,4 +34,17 @@ class ForegroundService {
       await _channel.invokeMethod<void>('stop');
     } catch (_) {}
   }
+
+  /// Des écouteurs (Bluetooth, filaires, USB…) sont-ils branchés ?
+  /// Détermine le routage du bip de fin : avec écouteurs, le son doit sortir
+  /// dedans (flux média) — le flux ALARME de la notif sort toujours du
+  /// haut-parleur du téléphone, gênant à la salle.
+  Future<bool> hasHeadphones() async {
+    if (!_supported) return false;
+    try {
+      return await _channel.invokeMethod<bool>('hasHeadphones') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

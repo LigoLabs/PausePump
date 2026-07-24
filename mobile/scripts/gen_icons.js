@@ -9,9 +9,9 @@
 //  - legacy : carré arrondi transparent (mipmap ic_launcher, Android < 8)
 //  - fg     : motif seul, réduit dans la « safe zone » adaptive (Android 8+)
 //  - mono   : comme fg, tout blanc (icônes thématiques Android 13+)
-const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
+const { encodePNG } = require('./png');
 
 // -- Palette et géométrie : mêmes valeurs que la PWA -------------------------
 const BG = [15, 18, 25];        // #0f1219
@@ -96,45 +96,6 @@ function render(outW, outH, mode) {
     }
   }
   return encodePNG(outW, outH, out);
-}
-
-// -- Encodage PNG minimal (repris de la PWA) ---------------------------------
-function encodePNG(w, h, rgba) {
-  const raw = Buffer.alloc((w * 4 + 1) * h);
-  for (let y = 0; y < h; y++) {
-    raw[y * (w * 4 + 1)] = 0;
-    rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
-  }
-  const idat = zlib.deflateSync(raw, { level: 9 });
-  function chunk(type, data) {
-    const len = Buffer.alloc(4);
-    len.writeUInt32BE(data.length, 0);
-    const t = Buffer.from(type, 'ascii');
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(Buffer.concat([t, data])) >>> 0, 0);
-    return Buffer.concat([len, t, data, crc]);
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8;  // bit depth
-  ihdr[9] = 6;  // RGBA
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
-}
-const crcTable = (() => {
-  const t = new Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-function crc32(b) {
-  let c = 0xffffffff;
-  for (let i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
 }
 
 // -- Sorties -----------------------------------------------------------------
