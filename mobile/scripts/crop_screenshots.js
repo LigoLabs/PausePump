@@ -13,12 +13,15 @@ const fs = require('fs');
 const path = require('path');
 const { encodePNG, decodePNG } = require('./png');
 
-const STATUS_BAR = 140;          // hauteur de la barre d'état à retirer (px)
+// Hauteur de la barre d'état, en fraction de la largeur : mesurée à 140 px sur
+// une capture 1080 de large, elle grandit avec la définition (les captures
+// tablette sont prises en 1440).
+const STATUS_BAR_RATIO = 140 / 1080;
 const BG = [15, 18, 25];         // #0f1219, le fond de l'app
 
 function toStoreFormat(buf) {
   const src = decodePNG(buf);
-  const top = Math.min(STATUS_BAR, src.height - 1);
+  const top = Math.min(Math.round(src.width * STATUS_BAR_RATIO), src.height - 1);
   // Play exige un ratio 9:16 EXACT en portrait. On rogne la hauteur au
   // multiple de 16 inférieur, ce qui donne une largeur entière (h/16*9), puis
   // on complète les côtés avec le fond de l'app — invisible, et aucun contenu
@@ -49,12 +52,17 @@ function toStoreFormat(buf) {
   return { png: encodePNG(w, h, out), w, h };
 }
 
-const inputs = process.argv.slice(2);
+// --out=<sous-dossier> range les sorties ailleurs que dans screenshots/
+// (Play veut des jeux distincts pour téléphone, tablette 7" et tablette 10").
+const args = process.argv.slice(2);
+const outArg = args.find((a) => a.startsWith('--out='));
+const inputs = args.filter((a) => !a.startsWith('--'));
 if (!inputs.length) {
-  console.error('usage : node scripts/crop_screenshots.js <entrée.png> [...]');
+  console.error('usage : node scripts/crop_screenshots.js [--out=<dossier>] <entrée.png> [...]');
   process.exit(1);
 }
-const outDir = path.join(__dirname, '..', 'store', 'screenshots');
+const outDir = path.join(
+  __dirname, '..', 'store', outArg ? outArg.slice(6) : 'screenshots');
 fs.mkdirSync(outDir, { recursive: true });
 
 inputs.forEach((input, i) => {

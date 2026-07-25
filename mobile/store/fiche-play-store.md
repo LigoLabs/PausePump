@@ -9,10 +9,19 @@ Textes prêts à copier-coller dans Play Console.
 | Icône de l'application | `store/play-icon-512.png` (512×512) |
 | Image de présentation | `store/feature-graphic-1024x500.png` (1024×500) |
 | Captures d'écran pour téléphone | les 5 fichiers de `store/screenshots/` |
+| Captures pour tablette 7 pouces | les 4 fichiers de `store/screenshots-tablet7/` |
+| Captures pour tablette 10 pouces | les 4 fichiers de `store/screenshots-tablet10/` |
 
-Les captures font **1269×2256 = 9:16 exact**, le ratio qu'exige Play (une
-capture brute de Pixel, en 1080×2400, serait refusée). Régénérables via
-`node scripts/crop_screenshots.js <captures brutes...>`.
+Toutes les captures sont au **ratio 9:16 exact**, le seul accepté par Play
+avec le 16:9 (une capture brute de Pixel, en 1080×2400, serait refusée) :
+
+- téléphone et tablette 7″ : 1269×2256
+- tablette 10″ : 1692×3008 (Play impose un côté minimum de 1080 px sur ce format)
+
+Les captures tablette ont été prises en faisant rendre un appareil en
+tablette via `adb shell wm size` / `wm density` (617 dp de large pour le 7″,
+960 dp pour le 10″), sans émulateur de tablette dédié. Retraitement :
+`node scripts/crop_screenshots.js [--out=<dossier>] <captures brutes...>`.
 
 ## Nom de l'application (max 30)
 ```
