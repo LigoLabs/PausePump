@@ -59,7 +59,8 @@ Existe aussi en version web et sur Apple Watch.
 ```
 
 ## Catégorie
-**Santé et remise en forme** (Health & Fitness)
+Dans l'interface française de Play Console, l'intitulé exact est
+**« Santé et bien-être »** (Health & Fitness). Application, pas jeu.
 Tags : entraînement, musculation, minuteur, fitness
 
 ## Notes de version 1.0.0 (max 500)
