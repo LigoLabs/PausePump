@@ -1,81 +1,190 @@
-# Publier PausePump sur les stores
+# Publier PausePump — état des lieux
 
-État : tout ce qui est **automatisable depuis le repo est fait** (icônes,
-signature Android, builds). Ce guide liste ce qui est prêt et les étapes
-restantes — celles-là exigent tes comptes développeur, personne d'autre ne
-peut les faire.
+Document de référence unique pour la publication sur les deux stores.
+Tenu à jour au fil des sessions : **mis à jour le 25 juillet 2026**.
 
-## Ce qui est déjà prêt ✔
+Une grande partie du travail a été faite depuis un poste **Windows**, qui ne
+peut pas produire de build iOS. Ce fichier sert aussi de passation vers un
+poste **macOS**, seul capable de compiler et de générer les captures iOS.
 
-- **Icônes natives** : générées par `node scripts/gen_icons.js` (zéro dépendance,
-  même design que la PWA) —
-  - Android : `mipmap-*/ic_launcher.png` (legacy) + icône **adaptive**
-    (fond `values/colors.xml`, motif `ic_launcher_foreground`, variante
-    **monochrome** pour les icônes thématiques d'Android 13+) ;
-  - iOS : `AppIcon.appiconset` complet, PNG **opaques** (Apple refuse l'alpha) ;
-  - Store : `store/play-icon-512.png` (fiche Play) et
-    `store/feature-graphic-1024x500.png` (bannière Play).
-- **Signature Android** : clé d'upload `android/upload-keystore.jks` +
-  `android/key.properties` (tous deux **gitignorés**). `build.gradle.kts` signe
-  la release avec, et retombe sur la clé debug si absents (CI).
-- **R8/ProGuard** : `android/app/proguard-rules.pro` (obligatoire, sinon crash
-  release — voir le commentaire du fichier).
-- **Builds** : `flutter build appbundle --release` (Play) et
-  `flutter build apk --release` (installation directe).
+---
 
-## ⚠️ À sauvegarder tout de suite (irremplaçable)
+## Identifiants à connaître
 
-Copie ces 2 fichiers dans un gestionnaire de mots de passe / coffre :
+| Quoi | Valeur |
+|---|---|
+| Package / Bundle ID | `com.ligolabs.pausepump` |
+| Bundle ID app watch | `com.ligolabs.pausepump.watchkitapp` |
+| Bundle ID extension Live Activity | `com.ligolabs.pausepump.widgets` |
+| Compte développeur Google Play | **Wishfast** — `7805417471332562909` |
+| App Play Console | `4974267703139581953` |
+| Équipe Apple (Team ID) | `5VX5GGKUXD` |
+| App Store Connect (Apple ID) | `6794934339` |
+| UGS / SKU iOS | `pausepump-ios-001` |
+| Site (GitHub Pages) | <https://ligolabs.github.io/PausePump/> |
+| Politique de confidentialité | <https://ligolabs.github.io/PausePump/privacy.html> |
 
-- `mobile/android/upload-keystore.jks`
-- `mobile/android/key.properties` (contient les mots de passe du keystore)
+Le nom d'éditeur affiché sur Google Play est **Wishfast**, pas LigoLabs : il
+est commun à tout le compte et n'est pas modifiable depuis la console pour un
+compte d'organisation vérifié. Le changer demande une requête à l'assistance
+Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
 
-Ils ne sont **pas dans git** (c'est voulu). Perdus = procédure de
-réinitialisation de clé auprès de Google (lente). Divulgués = quelqu'un peut
-pousser des mises à jour à ta place.
+---
 
-## Google Play — étapes restantes (~1 h + review)
+## Google Play — ce qui est fait
 
-1. **Compte** : [Play Console](https://play.google.com/console) — 25 $ une fois.
-2. **Créer l'app** → nom `PausePump`, français, app, gratuite.
-3. **Play App Signing** : accepte (Google garde la clé d'app, ton
-   `upload-keystore.jks` sert de clé d'upload).
-4. **Uploader** `build/app/outputs/bundle/release/app-release.aab` dans
-   *Production → Créer une release* (ou *Tests internes* d'abord, recommandé).
-5. **Fiche du store** :
-   - icône 512 : `store/play-icon-512.png`
-   - bannière : `store/feature-graphic-1024x500.png`
-   - 2+ captures d'écran téléphone (prends-les dans l'app : accueil, timer,
-     « Fais ta série », réglages)
-   - description courte (80 c.) et longue.
-6. **Questionnaires obligatoires** : classification du contenu, public cible
-   (18+ conseillé vu l'absence de contrôle parental), sécurité des données
-   (PausePump ne collecte **rien** : tout est en local — déclare « aucune
-   donnée collectée »), et une **politique de confidentialité** (URL requise :
-   une page GitHub Pages suffit, dis-le si tu veux que je la génère).
-7. Soumettre. Première review : quelques jours.
+- **App créée**, en brouillon, français, gratuite.
+- **Les 10 déclarations obligatoires sont validées** : confidentialité,
+  annonces (aucune), informations de connexion (rien de restreint),
+  classification du contenu (IARC → *Toutes les tranches d'âge*), cible
+  (18 ans et plus), sécurité des données (**aucune collecte, aucun partage**),
+  identifiant publicitaire (non), applis gouvernementales (non),
+  fonctionnalités financières (aucune), applis de santé (*Activité et remise
+  en forme*).
+- **Déclaration `FOREGROUND_SERVICE_SPECIAL_USE`** remplie, avec la vidéo de
+  démonstration exigée par Google, hébergée sur Pages :
+  <https://ligolabs.github.io/PausePump/mobile/store/demo-foreground-service.mp4>
+- **Fiche Play Store** : nom, description courte (70/80) et description
+  longue (1260/4000) enregistrées.
 
-## App Store (iOS) — étapes restantes
+### Google Play — ce qu'il reste
 
-1. **Compte** : [Apple Developer Program](https://developer.apple.com) —
-   99 $/an. (Bloquant : sans lui, rien n'est possible côté iOS.)
-2. **Identifiants** : dans App Store Connect, crée l'app avec le bundle id du
-   Runner (+ ceux de la watch app / Live Activity générés par
-   `ios/scripts/setup_ios_targets.rb` s'ils sont soumis ensemble).
-3. **Build** : nécessite un Mac (ou la CI macOS du repo) :
-   `flutter build ipa --release` puis upload via Transporter ou Xcode.
-   La signature (certificats + profils) se configure dans Xcode avec ton
-   compte — automatique en général.
-4. **Fiche** : captures d'écran (6.7″ et 6.1″ minimum), description,
-   politique de confidentialité (même URL que Play), catégorie
-   « Forme et santé ».
-5. **Export compliance** : l'app n'utilise que HTTPS standard → réponse
-   « exempt » (clé `ITSAppUsesNonExemptEncryption=false` déjà posée si
-   présente dans l'Info.plist, sinon réponds « non » dans App Store Connect).
-6. Soumettre. Review : 1–3 jours en général.
+1. **Glisser les images** dans la fiche (l'outil d'automatisation du
+   navigateur ne peut pas téléverser de fichiers) :
+   - icône → `store/play-icon-512.png`
+   - image de présentation → `store/feature-graphic-1024x500.png`
+   - captures téléphone → les 5 de `store/screenshots/`
+   - captures tablette 7″ → les 4 de `store/screenshots-tablet7/`
+   - captures tablette 10″ → les 4 de `store/screenshots-tablet10/`
+2. **Catégorie** → « Santé et bien-être » (intitulé exact de l'UI française),
+   dans *Paramètres de la fiche Play Store*.
+3. **E-mail de contact** de la fiche : vide, obligatoire, et **public**.
+4. **Release de production** : glisser
+   `build/app/outputs/bundle/release/app-release.aab`, coller les notes de
+   version (dans `store/fiche-play-store.md`), choisir les pays.
+5. Envoyer en examen.
 
-## Versions suivantes
+---
 
-Incrémente `version:` dans `pubspec.yaml` (ex. `1.0.1+2` — le `+N` est le
-`versionCode` Android / build number iOS, il doit **toujours** augmenter),
-rebuild, re-upload. Rien d'autre à toucher.
+## App Store — ce qui est fait
+
+- **App ID `com.ligolabs.pausepump` enregistré** dans le portail développeur,
+  avec la capacité **Time Sensitive Notifications** activée (les entitlements
+  du projet la réclament ; sans elle la signature échoue à l'archive).
+- **App créée** dans App Store Connect.
+- **Fiche remplie** : sous-titre (23/30), description (2648/4000), mots-clés
+  (94/100), URL d'assistance et marketing, copyright, catégories
+  (*Forme et santé* + *Sports*), URL de politique de confidentialité.
+- **Confidentialité de l'app** : questionnaire répondu → *Données non
+  collectées*.
+
+### App Store — ce qu'il reste
+
+1. **Cliquer « Publier »** sur la page *Confidentialité de l'app* : le
+   questionnaire est enregistré mais Apple exige une publication explicite de
+   l'étiquette avant de pouvoir soumettre.
+2. **Captures d'écran** — à produire au simulateur iOS (voir plus bas).
+   Format demandé par la console : **iPhone 6,5″**, soit 1242 × 2688,
+   2688 × 1242, 1284 × 2778 ou 2778 × 1284. Seules les 3 premières
+   apparaissent sur les fiches d'installation.
+3. **Le build** (voir plus bas).
+4. Envoyer en examen.
+
+---
+
+## Le build iOS
+
+Deux chemins, au choix.
+
+### En local sur le Mac
+
+```bash
+cd mobile
+flutter pub get
+gem install xcodeproj --no-document
+ruby ios/scripts/setup_ios_targets.rb   # INDISPENSABLE avant toute compilation
+flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+```
+
+Le `project.pbxproj` committé est le **shell Flutter brut** : l'extension Live
+Activity et l'app watch n'y sont pas. Le script Ruby les recrée à chaque fois.
+Ne jamais compiler sans l'avoir lancé.
+
+### Par la CI
+
+Le workflow `.github/workflows/ios-release.yml` produit une archive signée et
+l'envoie sur TestFlight, avec signature automatique via une clé API App Store
+Connect. Il faut d'abord créer trois secrets GitHub — `ASC_KEY_ID`,
+`ASC_ISSUER_ID`, `ASC_API_KEY_P8` — documentés en en-tête du workflow.
+
+À ne pas confondre avec le job `build-ios` de `mobile-build.yml`, qui compile
+en `--no-codesign` : celui-là ne fait que vérifier que le code compile, et
+produit un bundle non distribuable.
+
+---
+
+## Captures d'écran — comment elles ont été faites
+
+Le script `scripts/crop_screenshots.js` (Node, sans dépendance) met des
+captures brutes aux normes des stores. Il **retire la barre d'état** — qui
+expose les notifications personnelles, à ne pas publier — puis complète les
+côtés avec le fond de l'app (`#0f1219`, invisible) jusqu'à tomber sur un ratio
+**9:16 exact**, le seul accepté par Play avec le 16:9. Un recadrage vertical,
+lui, couperait les boutons du bas.
+
+```bash
+node scripts/crop_screenshots.js [--out=<dossier>] <captures brutes...>
+```
+
+Les captures tablette ont été prises sans émulateur dédié, en faisant rendre
+un appareil en tablette :
+
+```bash
+adb shell wm size 1080x2400 && adb shell wm density 280   # 7"  → 617 dp
+adb shell wm size 1440x3200 && adb shell wm density 240   # 10" → 960 dp
+adb shell wm size reset && adb shell wm density reset     # TOUJOURS restaurer
+```
+
+Pour iOS, il faudra les refaire au simulateur : les captures Android n'ont pas
+les bonnes dimensions, et une fiche App Store doit montrer l'app telle qu'elle
+tourne sur iOS.
+
+---
+
+## Pièges rencontrés, à ne pas réintroduire
+
+**Les règles R8 sont obligatoires.** Sans `android/app/proguard-rules.pro`, la
+minification release casse la sérialisation Gson de
+`flutter_local_notifications` et l'app **plante au lancement du minuteur**
+(`RuntimeException: Missing type parameter`). Invisible en debug.
+
+**Le keystore d'upload Android n'est pas dans le dépôt.**
+`android/upload-keystore.jks` et `android/key.properties` sont gitignorés et
+n'existent **que sur le poste Windows**. Un build release fait sur le Mac
+retombera sur la clé debug et sera refusé par Play. Pour publier une mise à
+jour Android depuis le Mac, il faut d'abord y copier ces deux fichiers.
+
+**`UIBackgroundModes = audio`** est le motif de rejet le plus probable côté
+Apple : ce mode vise les apps qui diffusent de l'audio en continu, or
+PausePump ne joue qu'un bip bref. Les notes pour l'examen sont rédigées dans
+`store/fiche-app-store.md`. Si Apple refuse, le repli est de retirer ce mode
+et de s'appuyer sur les notifications locales programmées.
+
+**Le son de fin et les écouteurs.** La notification de fin utilise le canal
+alarme, qu'Android sort toujours du haut-parleur. `MainActivity.hasHeadphones`
+détecte les écouteurs : s'il y en a, la notif est planifiée muette et c'est le
+bip in-app (flux média) qui sonne. Ne pas « simplifier » ce chemin.
+
+---
+
+## Fichiers utiles
+
+| Fichier | Contenu |
+|---|---|
+| `store/fiche-play-store.md` | textes et réponses aux questionnaires Play |
+| `store/fiche-app-store.md` | textes, questionnaires et notes de revue Apple |
+| `store/screenshots*/` | captures prêtes à téléverser (téléphone, 7″, 10″) |
+| `store/demo-foreground-service.mp4` | vidéo justifiant le service de premier plan |
+| `scripts/gen_icons.js` | régénère toutes les icônes (Android, iOS, watchOS, store) |
+| `scripts/crop_screenshots.js` | met des captures aux normes 9:16 |
+| `ios/scripts/setup_ios_targets.rb` | recrée les targets Xcode (widgets + watch) |
