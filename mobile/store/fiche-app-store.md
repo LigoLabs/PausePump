@@ -134,12 +134,19 @@ Android du dossier `screenshots/` ne conviennent pas : elles n'ont pas les
 dimensions exigées par Apple, et une fiche App Store doit montrer l'app telle
 qu'elle tourne sur iOS.
 
-Tailles requises :
+Tailles réellement demandées par la fiche (relevées dans App Store Connect,
+elles diffèrent de ce que documente Apple ailleurs) :
 
 | Appareil | Dimensions acceptées |
 |---|---|
-| iPhone 6,9″ (obligatoire) | 1290 × 2796 ou 1320 × 2868 |
-| iPad 13″ (obligatoire, l'app cible l'iPad) | 2064 × 2752 ou 2048 × 2732 |
+| iPhone écran 6,5″ | 1242 × 2688, 2688 × 1242, 1284 × 2778 ou 2778 × 1284 |
+| iPad | onglet dédié dans le gestionnaire des visuels |
+| Apple Watch | onglet dédié |
+
+Seules les **3 premières captures** sont utilisées sur les fiches
+d'installation ; jusqu'à 10 par taille. Les captures fournies pour l'iPhone
+servent à toutes les langues et toutes les tailles d'écran si aucune variante
+n'est ajoutée.
 
 Mêmes écrans que sur Play, dans cet ordre : accueil, « Fais ta série », choix
 de durée, minuteur en cours, options.
