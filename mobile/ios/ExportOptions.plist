@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Options d'export de l'archive iOS vers l'App Store.
+     signingStyle=automatic : Xcode crée/renouvelle certificats et profils
+     tout seul, en s'authentifiant avec la clé API App Store Connect fournie
+     par la CI (voir .github/workflows/ios-release.yml). -->
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>teamID</key>
+	<string>5VX5GGKUXD</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<!-- L'app watch et l'extension Live Activity sont embarquées dans le
+	     Runner : elles héritent de la signature automatique. -->
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>destination</key>
+	<string>export</string>
+</dict>
+</plist>

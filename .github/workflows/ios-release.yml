@@ -1,0 +1,111 @@
+# Build iOS SIGNÉ et envoi sur TestFlight.
+#
+# À ne pas confondre avec le job `build-ios` de mobile-build.yml, qui compile
+# en --no-codesign : celui-là ne fait que vérifier que le code compile, et
+# produit un bundle inutilisable pour une distribution.
+#
+# Déclenchement manuel uniquement (Actions → iOS release → Run workflow) :
+# chaque envoi consomme un numéro de build sur App Store Connect.
+#
+# ─── Secrets à créer avant le premier run (Settings → Secrets → Actions) ───
+#   ASC_KEY_ID      identifiant de la clé (ex. ABC123XYZ9)
+#   ASC_ISSUER_ID   identifiant de l'émetteur (un UUID)
+#   ASC_API_KEY_P8  contenu COMPLET du fichier .p8, lignes BEGIN/END incluses
+#
+# Ces trois valeurs viennent d'App Store Connect → Utilisateurs et accès →
+# Intégrations → Clés API App Store Connect. Le .p8 ne se télécharge qu'UNE
+# fois : garde-le dans ton gestionnaire de mots de passe.
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Envoyer l'IPA sur TestFlight (sinon, archive seule)"
+        type: boolean
+        default: true
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.2
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj --no-document
+
+      # Le pbxproj committé est le shell Flutter brut : le script y recrée
+      # l'extension Live Activity et l'app watch avant toute compilation.
+      - name: Configurer les targets Xcode (widgets + watch)
+        run: ruby ios/scripts/setup_ios_targets.rb
+
+      # xcodebuild et altool cherchent la clé dans ~/private_keys sous ce nom
+      # exact. Le fichier vit le temps du job, sur un runner éphémère.
+      - name: Déposer la clé API App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
+            echo "::error::Secrets manquants. Crée ASC_KEY_ID, ASC_ISSUER_ID et ASC_API_KEY_P8 (voir l'en-tête de ce fichier)."
+            exit 1
+          fi
+          mkdir -p ~/private_keys
+          printf '%s\n' "$ASC_API_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      # --release + signature automatique : Xcode demande à App Store Connect
+      # de créer certificat et profils s'ils n'existent pas encore.
+      - name: Build IPA signé
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          if ! flutter build ipa --release \
+                 --export-options-plist=ios/ExportOptions.plist 2>&1 | tee build-ipa.log; then
+            echo '---- Erreurs (max 15 annotations) ----'
+            grep -iE "error:|error \(xcode\)|failed|no profiles|no signing certificate|requires a provisioning profile" build-ipa.log \
+              | grep -vi "warning" | head -15 \
+              | while IFS= read -r line; do echo "::error::${line}"; done
+            tail -n 80 build-ipa.log
+            exit 1
+          fi
+          ls -la build/ios/ipa/
+
+      - name: Récupérer l'IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: pausepump-ios-ipa
+          path: mobile/build/ios/ipa/*.ipa
+          if-no-files-found: error
+
+      # Étape séparée : si l'envoi échoue (numéro de build déjà pris, fiche
+      # incomplète…), l'IPA reste récupérable en artefact ci-dessus.
+      - name: Envoyer sur TestFlight
+        if: ${{ inputs.upload }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          ipa=$(ls build/ios/ipa/*.ipa | head -1)
+          echo "Envoi de ${ipa}"
+          xcrun altool --upload-app -t ios -f "$ipa" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee upload.log
+          echo "::notice::Build envoyé. Le traitement côté Apple prend 5 à 30 minutes avant apparition dans TestFlight."
