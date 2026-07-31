@@ -82,10 +82,12 @@ Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
   attendues (aucun recadrage nécessaire) :
   - iPhone 6,5″ → `store/screenshots-ios/`, 5 captures en **1284 × 2778**
     (simulateur iPhone 14 Plus) ;
-  - Apple Watch → `store/screenshots-watch/`, 3 captures en **416 × 496**
+  - Apple Watch → `store/screenshots-watch/`, 4 captures en **416 × 496**
     (simulateur Series 10 46 mm). **Obligatoires** : le binaire embarque une
     app watchOS, donc App Store Connect réclame cet onglet.
-- **Build `1.0.0 (2)` envoyé** depuis le Mac et accepté par App Store Connect.
+- **Build `1.0.0 (4)` envoyé** depuis le Mac et accepté par App Store Connect.
+  Les builds 1 à 3 l'ont été aussi et restent visibles dans la console : ne
+  pas les rattacher, ils précèdent la refonte de l'app watch.
 
 ### App Store — ce qu'il reste
 
@@ -94,7 +96,7 @@ Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
    l'étiquette avant de pouvoir soumettre.
 2. **Classification par âge** : répondre au questionnaire (tout à *Aucun*).
 3. **Téléverser les captures** des deux dossiers ci-dessus.
-4. **Rattacher le build** `1.0.0 (2)` à la version.
+4. **Rattacher le build** `1.0.0 (4)` à la version.
 5. Envoyer en examen.
 
 ---
