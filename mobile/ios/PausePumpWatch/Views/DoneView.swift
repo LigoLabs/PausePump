@@ -16,40 +16,42 @@ struct DoneView: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Spacer(minLength: 2)
+        VStack(spacing: PPMetrics.s(4)) {
+            Spacer(minLength: 0)
 
             Text("🎉")
-                .font(.system(size: 38))
+                .font(.system(size: PPMetrics.s(30)))
 
             Text("Séance terminée !")
-                .font(.system(.title3, design: .rounded).weight(.bold))
+                .font(.system(size: PPMetrics.s(17), weight: .bold, design: .rounded))
                 .foregroundColor(PPColor.text)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
 
             Text(recap)
-                .font(.footnote)
+                .font(.system(size: PPMetrics.s(12)))
                 .foregroundColor(PPColor.textDim)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 0)
 
             Button {
                 model.restart()
             } label: {
                 Text("Recommencer")
             }
-            .buttonStyle(PPFilledButtonStyle(color: PPColor.accent, minHeight: 42))
+            .buttonStyle(PPFilledButtonStyle(color: PPColor.accent))
 
             Button {
                 model.quit()
             } label: {
                 Text("Accueil")
-                    .font(.footnote)
-                    .foregroundColor(PPColor.textDim)
-                    .frame(maxWidth: .infinity, minHeight: 28)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PPQuietButtonStyle(minHeight: PPMetrics.s(30)))
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, PPMetrics.gutter)
+        .padding(.bottom, 2)
     }
 }

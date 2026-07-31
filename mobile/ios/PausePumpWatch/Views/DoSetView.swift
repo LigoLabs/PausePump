@@ -3,8 +3,9 @@ import SwiftUI
 import WatchEngine
 #endif
 
-// « Fais ta série » (mode Pause seule) : un seul geste possible, ultra
-// facile à taper en salle — le bouton de validation occupe tout le bas.
+// « Fais ta série » (mode Repos seul) : un seul geste possible.
+// Le bouton reste pleine largeur — c'est ça qui le rend facile à taper —
+// mais sa hauteur est ramenée au gabarit commun.
 
 struct DoSetView: View {
     @EnvironmentObject private var model: WatchSessionModel
@@ -15,34 +16,37 @@ struct DoSetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Spacer(minLength: 2)
+        VStack(spacing: PPMetrics.s(6)) {
+            Spacer(minLength: 0)
 
             Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 30, weight: .semibold))
+                .font(.system(size: PPMetrics.s(26), weight: .semibold))
                 .foregroundColor(PPColor.accent)
 
             // « Fais ta 2e série » — l'ordinal ressort en teal.
             (Text("Fais ta ")
                 + Text(ordinal).foregroundColor(PPColor.accent)
                 + Text(" série"))
-                .font(.system(.title3, design: .rounded).weight(.bold))
+                .font(.system(size: PPMetrics.s(17), weight: .bold, design: .rounded))
                 .foregroundColor(PPColor.text)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
 
             Text("Série \(model.currentSeries)/\(model.seriesTotal)")
-                .font(.caption2)
+                .font(.system(size: PPMetrics.s(11)))
                 .foregroundColor(PPColor.textDim)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 0)
 
             Button {
                 model.validateSet()
             } label: {
-                Text("J'ai fait ma série ✓")
+                Text("J'ai fait ma série")
             }
-            .buttonStyle(PPFilledButtonStyle(color: PPColor.accent, minHeight: 52))
+            .buttonStyle(PPFilledButtonStyle(color: PPColor.accent))
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, PPMetrics.gutter)
+        .padding(.bottom, 2)
     }
 }

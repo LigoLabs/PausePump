@@ -28,11 +28,21 @@ final class WatchSessionModel: NSObject, ObservableObject {
     private enum Keys {
         static let lastPause = "pp.lastPause"
         static let mode = "pp.mode"
+        static let durations = "pp.durations"
+        static let effortAuto = "pp.effortAuto"
     }
 
     /// L'autorisation notifications n'est demandée qu'au premier démarrage
     /// de séance (pas au lancement de l'app : moins intrusif).
     private var didRequestNotifAuth = false
+
+    /// Vrai dès que l'utilisateur a choisi le mode À LA MONTRE.
+    ///
+    /// `applyPhoneContext` applique le mode du téléphone tant qu'on est sur
+    /// l'accueil : sans ce garde-fou, un contexte poussé juste après le choix
+    /// le ferait retomber sur le mode du téléphone sous les doigts de
+    /// l'utilisateur. Le choix local gagne donc jusqu'au prochain lancement.
+    private var didChooseModeLocally = false
 
     override init() {
         super.init()
@@ -61,8 +71,13 @@ final class WatchSessionModel: NSObject, ObservableObject {
     var currentSeries: Int { engine.currentSeries }
     var durationSec: Int { engine.durationSec }
     var running: Bool { engine.running }
+    /// Durées proposées dans le sélecteur (personnalisables dans les réglages).
+    var durations: [Int] { engine.durations }
+    /// Mode Effort + Repos : enchaîner automatiquement (`true`) ou choisir
+    /// une durée avant chaque étape (`false`).
+    var effortAuto: Bool { engine.effortAuto }
 
-    /// Temps restant (secondes) à l'instant donné — figé si le décompte est en pause.
+    /// Temps restant (secondes) à l'instant donné — figé si le décompte est suspendu.
     func remaining(at date: Date) -> Double { engine.remaining(at: date) }
     /// Progression 0…1 de la phase courante.
     func progress(at date: Date) -> Double { engine.progress(at: date) }
@@ -72,6 +87,75 @@ final class WatchSessionModel: NSObject, ObservableObject {
     // =========================================================================
     //  Actions utilisateur — wrappers : notifier SwiftUI puis muter le moteur
     // =========================================================================
+    // =========================================================================
+    //  Réglages — durées personnalisées
+    // =========================================================================
+
+    /// Ajoute une durée au sélecteur (sans doublon, liste re-triée).
+    func addDuration(_ seconds: Int) {
+        guard !engine.durations.contains(seconds) else { return }
+        objectWillChange.send()
+        engine.setDurations(engine.durations + [seconds])
+        persistConfig()
+        WKInterfaceDevice.current().play(.click)
+    }
+
+    /// Retire une durée. La dernière ne peut pas être supprimée : un
+    /// sélecteur vide rendrait l'app inutilisable (`setDurations` refuserait
+    /// de toute façon, autant ne pas laisser croire que le geste a marché).
+    func removeDuration(_ seconds: Int) {
+        guard engine.durations.count > 1 else { return }
+        objectWillChange.send()
+        engine.setDurations(engine.durations.filter { $0 != seconds })
+        persistConfig()
+        WKInterfaceDevice.current().play(.click)
+    }
+
+    /// Revient à la liste d'origine.
+    func resetDurations() {
+        objectWillChange.send()
+        engine.setDurations(kDurations)
+        persistConfig()
+        WKInterfaceDevice.current().play(.click)
+    }
+
+    /// Durées retenues pour l'enchaînement automatique (mode Effort + Repos).
+    var effortSel: Int { engine.effortSel }
+    var restSel: Int { engine.restSel }
+
+    /// Règle l'enchaînement puis démarre — en un seul geste, pour que la vue
+    /// de réglage n'ait pas à orchestrer trois appels dans le bon ordre
+    /// (`effortAuto` doit être posé AVANT `startSession`, qui s'en sert pour
+    /// décider s'il lance l'effort ou s'il demande une durée).
+    func startEffortSession(series: Int, auto: Bool, effort: Int, rest: Int) {
+        requestNotifAuthIfNeeded()
+        objectWillChange.send()
+        engine.effortAuto = auto
+        engine.effortSel = effort
+        engine.restSel = rest
+        persistConfig()
+        engine.startSession(series: series)
+    }
+
+    /// Enchaînement automatique des phases en mode Effort + Repos.
+    func chooseEffortAuto(_ auto: Bool) {
+        guard auto != engine.effortAuto else { return }
+        objectWillChange.send()
+        engine.effortAuto = auto
+        persistConfig()
+        WKInterfaceDevice.current().play(.click)
+    }
+
+    /// Choix du mode depuis l'accueil de la montre.
+    func chooseMode(_ mode: SessionMode) {
+        guard mode != engine.mode else { return }
+        objectWillChange.send()
+        didChooseModeLocally = true
+        engine.setMode(mode)
+        persistConfig()
+        WKInterfaceDevice.current().play(.click)
+    }
+
     func startSession(series: Int) {
         requestNotifAuthIfNeeded()
         objectWillChange.send()
@@ -191,7 +275,7 @@ final class WatchSessionModel: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = "PausePump ⏱️"
         content.body = phase == .pause
-            ? "Pause terminée • à toi de jouer !"
+            ? "Repos terminé • à toi de jouer !"
             : "Effort terminé 💪"
         content.sound = .default
         // Fin de pause = time-sensitive : doit percer les modes focus.
@@ -219,7 +303,10 @@ final class WatchSessionModel: NSObject, ObservableObject {
         objectWillChange.send()
         engine.applyPhoneContext(
             lastPause: ctx.lastPause,
-            mode: ctx.mode.flatMap(SessionMode.init(rawValue:))
+            // Un choix fait à la montre n'est plus écrasé par le téléphone.
+            mode: didChooseModeLocally
+                ? nil
+                : ctx.mode.flatMap(SessionMode.init(rawValue:))
         )
         persistConfig()
         // alarm / vibrate / sound / volume : réglages du téléphone sans
@@ -231,12 +318,28 @@ final class WatchSessionModel: NSObject, ObservableObject {
         let defaults = UserDefaults.standard
         defaults.set(engine.lastPause, forKey: Keys.lastPause)
         defaults.set(engine.mode.rawValue, forKey: Keys.mode)
+        defaults.set(engine.durations, forKey: Keys.durations)
+        defaults.set(engine.effortAuto, forKey: Keys.effortAuto)
     }
 
     private func restoreConfig() {
         let defaults = UserDefaults.standard
         let pause = defaults.integer(forKey: Keys.lastPause) // 0 si absent
         let mode = defaults.string(forKey: Keys.mode).flatMap(SessionMode.init(rawValue:))
+
+        // Les durées d'abord : `applyPhoneContext` valide `lastPause` contre
+        // la liste courante, il faut donc qu'elle soit déjà restaurée.
+        if let saved = defaults.array(forKey: Keys.durations) as? [Int], !saved.isEmpty {
+            engine.setDurations(saved)
+        }
+
+        // `object(forKey:)` et pas `bool(forKey:)` : ce dernier rend false
+        // quand la clé est absente, ce qui désactiverait l'enchaînement
+        // automatique au tout premier lancement alors qu'il est actif par
+        // défaut.
+        if let auto = defaults.object(forKey: Keys.effortAuto) as? Bool {
+            engine.effortAuto = auto
+        }
         // `applyPhoneContext` valide la durée (kDurations) et n'applique
         // le mode que hors séance — exactement ce qu'on veut au relancement.
         engine.applyPhoneContext(lastPause: pause > 0 ? pause : nil, mode: mode)

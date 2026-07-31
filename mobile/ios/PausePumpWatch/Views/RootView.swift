@@ -17,8 +17,26 @@ struct RootView: View {
 
             content
                 .transition(.opacity)
+
+            // Retour à l'accueil, disponible à TOUT moment d'une séance.
+            // En surimpression dans le coin haut-gauche (le coin haut-droit
+            // est occupé par l'heure système) : il ne prend aucune place dans
+            // la mise en page des écrans, déjà très contrainte.
+            if showsHomeButton {
+                PPCornerButton(symbol: "house.fill") { model.quit() }
+                    .ppTopLeftCorner()
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: model.step)
+    }
+
+    /// Pas d'accueil sur l'accueil, ni sur l'écran de fin qui a déjà son
+    /// propre bouton « Accueil » en toutes lettres.
+    private var showsHomeButton: Bool {
+        switch model.step {
+        case .idle, .done: return false
+        case .doSet, .duration, .timer: return true
+        }
     }
 
     @ViewBuilder

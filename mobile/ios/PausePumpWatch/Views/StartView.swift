@@ -3,8 +3,10 @@ import SwiftUI
 import WatchEngine
 #endif
 
-// Accueil : logo, mode courant (piloté par l'iPhone), nombre de séries
-// et gros bouton de départ.
+// Accueil : logo, choix du mode, nombre de séries, départ.
+//
+// Le mode se choisit directement à la montre (il était auparavant imposé par
+// l'iPhone) — voir `WatchSessionModel.chooseMode`.
 
 struct StartView: View {
     @EnvironmentObject private var model: WatchSessionModel
@@ -12,62 +14,117 @@ struct StartView: View {
     /// Nombre de séries sélectionné (borné par kSeriesChoices).
     @State private var series = 3
 
+    /// Feuille des réglages (durées personnalisées).
+    @State private var showSettings = false
+
+    /// Feuille de réglage de l'enchaînement, en mode Effort + Repos.
+    @State private var showEffortSetup = false
+
     private var minSeries: Int { kSeriesChoices.first ?? 1 }
     private var maxSeries: Int { kSeriesChoices.last ?? 6 }
 
     var body: some View {
-        VStack(spacing: 6) {
-            // — Logo : « Pause » blanc + « Pump » teal —
-            HStack(spacing: 0) {
-                Text("Pause").foregroundColor(PPColor.text)
-                Text("Pump").foregroundColor(PPColor.accent)
-            }
-            .font(.system(.title3, design: .rounded).weight(.heavy))
-
-            // v1 : le mode est piloté par le téléphone, simple rappel discret.
-            Text(model.mode == .pause ? "Pause seule" : "Effort + Pause")
-                .font(.footnote)
-                .foregroundColor(PPColor.textDim)
-
-            Spacer(minLength: 4)
-
-            // — Sélecteur du nombre de séries —
-            HStack {
-                stepButton("minus") { series = max(series - 1, minSeries) }
-                Spacer()
-                VStack(spacing: 0) {
-                    Text("\(series)")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(PPColor.text)
-                    Text(series > 1 ? "séries" : "série")
-                        .font(.caption2)
-                        .foregroundColor(PPColor.textDim)
+        // ScrollView : sur un 40 mm, logo + mode + séries + bouton ne tiennent
+        // pas d'un bloc. Sur les grands boîtiers rien ne défile.
+        ScrollView {
+            // Espacement serré : en mode Effort + Repos il y a une rangée de
+            // plus, et le GO doit rester visible sans défiler.
+            VStack(spacing: PPMetrics.s(5)) {
+                // — Logo : « Pause » blanc + « Pump » teal —
+                HStack(spacing: 0) {
+                    Text("Pause").foregroundColor(PPColor.text)
+                    Text("Pump").foregroundColor(PPColor.accent)
                 }
-                Spacer()
-                stepButton("plus") { series = min(series + 1, maxSeries) }
-            }
-            .padding(.horizontal, 6)
+                .font(.system(size: PPMetrics.s(19), weight: .heavy, design: .rounded))
 
-            Spacer(minLength: 6)
+                modePicker
 
-            Button {
-                model.startSession(series: series)
-            } label: {
-                Text("C'est parti")
+                seriesStepper
+
+                Button {
+                    // Effort + Repos : le réglage de l'enchaînement arrive
+                    // APRÈS le GO, comme sur l'app iPhone. En Repos seul il
+                    // n'y a rien à régler, on démarre directement.
+                    if model.mode == .effort {
+                        showEffortSetup = true
+                    } else {
+                        model.startSession(series: series)
+                    }
+                } label: {
+                    Text("GO")
+                }
+                .buttonStyle(PPGoButtonStyle())
             }
-            .buttonStyle(PPFilledButtonStyle(color: PPColor.accent, minHeight: 44))
+            .padding(.horizontal, PPMetrics.gutter)
+            .padding(.bottom, 4)
         }
-        .padding(.horizontal, 4)
+        .overlay {
+            PPCornerButton(symbol: "gearshape.fill") { showSettings = true }
+                .ppTopLeftCorner()
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView().environmentObject(model)
+        }
+        .sheet(isPresented: $showEffortSetup) {
+            EffortSetupView(series: series).environmentObject(model)
+        }
     }
 
-    /// Petit bouton rond − / + (hit-target généreux pour la salle).
+    // — Mode : deux pastilles, celle du mode actif est pleine —
+    private var modePicker: some View {
+        HStack(spacing: PPMetrics.s(5)) {
+            modePill("Repos seul", mode: .pause)
+            modePill("Effort + Repos", mode: .effort)
+        }
+    }
+
+    private func modePill(_ label: String, mode: SessionMode) -> some View {
+        let selected = model.mode == mode
+        return Button {
+            model.chooseMode(mode)
+        } label: {
+            Text(label)
+                .font(.system(size: PPMetrics.s(12), weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundColor(selected ? PPColor.bg : PPColor.textDim)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, minHeight: PPMetrics.s(28))
+                .background(
+                    Capsule().fill(selected ? PPColor.accent : PPColor.bgElev2)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // — Séries : −  N  + —
+    private var seriesStepper: some View {
+        HStack {
+            stepButton("minus") { series = max(series - 1, minSeries) }
+            Spacer(minLength: 2)
+            VStack(spacing: 0) {
+                Text("\(series)")
+                    .font(.system(size: PPMetrics.s(32), weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(PPColor.text)
+                Text(series > 1 ? "séries" : "série")
+                    .font(.system(size: PPMetrics.s(11)))
+                    .foregroundColor(PPColor.textDim)
+            }
+            Spacer(minLength: 2)
+            stepButton("plus") { series = min(series + 1, maxSeries) }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    /// Petit bouton rond − / +.
     private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let d = PPMetrics.s(32)
+        return Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: PPMetrics.s(13), weight: .bold))
                 .foregroundColor(PPColor.text)
-                .frame(width: 38, height: 38)
+                .frame(width: d, height: d)
                 .background(Circle().fill(PPColor.bgElev2))
         }
         .buttonStyle(.plain)

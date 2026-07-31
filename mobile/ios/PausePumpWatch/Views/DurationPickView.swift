@@ -3,15 +3,15 @@ import SwiftUI
 import WatchEngine
 #endif
 
-// Choix de la durée — le cœur de l'UX montre : la DERNIÈRE durée utilisée
-// s'affiche en très grand dès l'ouverture, un swipe gauche/droite fait
-// défiler les autres durées (TabView paginée), un tap lance le décompte.
+// Choix de la durée : grille de deux tuiles par ligne.
+//
+// C'était auparavant un TabView paginé (une durée plein écran, swipe pour
+// changer) : illisible — le chiffre géant débordait sur le texte d'aide et
+// rien ne montrait les autres durées. Une grille les rend toutes visibles
+// d'un coup d'œil, et un tap lance directement le décompte.
 
 struct DurationPickView: View {
     @EnvironmentObject private var model: WatchSessionModel
-
-    /// Index de la page affichée dans kDurations.
-    @State private var selection = 0
 
     /// Couleur de la phase en cours de configuration.
     private var phaseColor: Color {
@@ -19,48 +19,59 @@ struct DurationPickView: View {
     }
 
     private var title: String {
-        if model.mode == .pause { return "Choisis ta pause" }
-        return model.pickingPhase == .effort ? "💪 Effort — durée" : "😮‍💨 Pause — durée"
+        if model.mode == .pause { return "Choisis ton repos" }
+        return model.pickingPhase == .effort ? "💪 Effort" : "😮‍💨 Repos"
+    }
+
+    private var columns: [GridItem] {
+        [GridItem(.flexible(), spacing: PPMetrics.s(5)),
+         GridItem(.flexible(), spacing: PPMetrics.s(5))]
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(PPColor.textDim)
-                .padding(.top, 2)
+        ScrollView {
+            VStack(spacing: PPMetrics.s(6)) {
+                Text(title)
+                    .font(.system(size: PPMetrics.s(13), weight: .semibold, design: .rounded))
+                    .foregroundColor(PPColor.textDim)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-            // Une durée par page, très grande, tap = lancer.
-            TabView(selection: $selection) {
-                ForEach(Array(kDurations.enumerated()), id: \.offset) { index, seconds in
-                    Button {
-                        model.pickDuration(seconds)
-                    } label: {
-                        Text(formatTime(Double(seconds)))
-                            .font(.system(size: 46, weight: .heavy, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundColor(phaseColor)
-                            .minimumScaleFactor(0.6)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .contentShape(Rectangle())
+                LazyVGrid(columns: columns, spacing: PPMetrics.s(5)) {
+                    ForEach(model.durations, id: \.self) { seconds in
+                        durationTile(seconds)
                     }
-                    .buttonStyle(.plain)
-                    .tag(index)
                 }
             }
-            .tabViewStyle(.page)
+            .padding(.horizontal, PPMetrics.gutter)
+            .padding(.bottom, 4)
+        }
+    }
 
-            Text("tap pour lancer · swipe pour changer")
-                .font(.system(size: 11))
-                .foregroundColor(PPColor.textDim)
-                .padding(.bottom, 2)
+    /// Une tuile de durée. Celle utilisée la dernière fois est cerclée pour
+    /// que le geste le plus fréquent (relancer la même durée) se repère sans
+    /// lire.
+    private func durationTile(_ seconds: Int) -> some View {
+        let isDefault = seconds == model.defaultDuration()
+        return Button {
+            model.pickDuration(seconds)
+        } label: {
+            Text(formatTime(Double(seconds)))
+                .font(.system(size: PPMetrics.s(18), weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundColor(isDefault ? phaseColor : PPColor.text)
+                .frame(maxWidth: .infinity, minHeight: PPMetrics.tileHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(PPColor.bgElev2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(isDefault ? phaseColor : .clear, lineWidth: 1.5)
+                )
         }
-        .onAppear {
-            // Ouvre le picker directement sur la dernière durée utilisée.
-            if let index = kDurations.firstIndex(of: model.defaultDuration()) {
-                selection = index
-            }
-        }
+        .buttonStyle(.plain)
     }
 }

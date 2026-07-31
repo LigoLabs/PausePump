@@ -7,6 +7,11 @@ import Foundation
 /// Durées de timer proposées (secondes) — mêmes valeurs que `kDurations` (Dart).
 public let kDurations: [Int] = [30, 45, 60, 90, 120, 150, 180, 300]
 
+/// Bornes d'une durée personnalisée : 5 s (en deçà le décompte n'a pas de
+/// sens) à 30 min (au-delà ce n'est plus un temps de repos).
+public let kMinDuration = 5
+public let kMaxDuration = 1800
+
 /// Choix du nombre de séries — mêmes valeurs que `kSeriesChoices` (Dart).
 public let kSeriesChoices: [Int] = [1, 2, 3, 4, 5, 6]
 
@@ -66,6 +71,23 @@ public final class WorkoutEngine {
     public private(set) var lastPause = 60
     public var effortSel = 60
     public var restSel = 60
+
+    /// Durées proposées dans le sélecteur, `kDurations` par défaut.
+    ///
+    /// Modifiable pour que l'utilisateur puisse ajouter ses propres durées
+    /// depuis les réglages de la montre. `kDurations` reste la valeur de
+    /// départ commune aux trois plateformes ; seule cette liste-ci varie.
+    /// Toujours triée et sans doublon (garanti par `setDurations`).
+    public private(set) var durations: [Int] = kDurations
+
+    /// Remplace la liste des durées proposées. Les valeurs hors bornes sont
+    /// écartées : une durée nulle bloquerait le décompte, une durée absurde
+    /// rendrait le sélecteur inutilisable.
+    public func setDurations(_ list: [Int]) {
+        let cleaned = Set(list.filter { $0 >= kMinDuration && $0 <= kMaxDuration })
+        guard !cleaned.isEmpty else { return }
+        durations = cleaned.sorted()
+    }
 
     // ---- État de séance ----
     public private(set) var step: EngineStep = .idle
@@ -335,7 +357,7 @@ public final class WorkoutEngine {
     // =========================================================================
     /// Applique le contexte poussé par l'iPhone (best effort, hors séance).
     public func applyPhoneContext(lastPause: Int?, mode: SessionMode?) {
-        if let p = lastPause, kDurations.contains(p) { self.lastPause = p }
+        if let p = lastPause, durations.contains(p) { self.lastPause = p }
         if let m = mode, step == .idle { self.mode = m }
     }
 
