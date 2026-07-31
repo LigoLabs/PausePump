@@ -92,15 +92,20 @@ Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
   Les builds 1 à 3 l'ont été aussi et restent visibles dans la console : ne
   pas les rattacher, ils précèdent la refonte de l'app watch.
 
+- **Étiquette de confidentialité publiée** (« Données non collectées »).
+- **Classification par âge : 4+** dans 172 pays.
+- **Tarifs et disponibilité** : gratuit, 175 pays.
+- **Déclarations** : dispositif médical réglementé → *non* ; droits relatifs
+  au contenu → *aucun contenu tiers*. Les deux sont **exigées avant
+  soumission** et n'apparaissent qu'en fin de parcours — la première parce que
+  la catégorie est « Forme et santé », la seconde pour toutes les apps.
+- **Version 1.0 soumise le 31 juillet 2026** avec le build `1.0.0 (4)`,
+  publication automatique après approbation.
+
 ### App Store — ce qu'il reste
 
-1. **Cliquer « Publier »** sur la page *Confidentialité de l'app* : le
-   questionnaire est enregistré mais Apple exige une publication explicite de
-   l'étiquette avant de pouvoir soumettre.
-2. **Classification par âge** : répondre au questionnaire (tout à *Aucun*).
-3. **Téléverser les captures** des deux dossiers ci-dessus.
-4. **Rattacher le build** `1.0.0 (4)` à la version.
-5. Envoyer en examen.
+Attendre le résultat de l'examen (24 à 48 h en général). En cas de rejet, le
+point le plus scruté était `UIBackgroundModes = audio`, désormais retiré.
 
 ---
 
