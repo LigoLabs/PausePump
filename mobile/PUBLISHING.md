@@ -78,17 +78,24 @@ Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
 - **Confidentialité de l'app** : questionnaire répondu → *Données non
   collectées*.
 
+- **Captures d'écran produites** au simulateur, aux dimensions exactes
+  attendues (aucun recadrage nécessaire) :
+  - iPhone 6,5″ → `store/screenshots-ios/`, 5 captures en **1284 × 2778**
+    (simulateur iPhone 14 Plus) ;
+  - Apple Watch → `store/screenshots-watch/`, 3 captures en **416 × 496**
+    (simulateur Series 10 46 mm). **Obligatoires** : le binaire embarque une
+    app watchOS, donc App Store Connect réclame cet onglet.
+- **Build `1.0.0 (2)` envoyé** depuis le Mac et accepté par App Store Connect.
+
 ### App Store — ce qu'il reste
 
 1. **Cliquer « Publier »** sur la page *Confidentialité de l'app* : le
    questionnaire est enregistré mais Apple exige une publication explicite de
    l'étiquette avant de pouvoir soumettre.
-2. **Captures d'écran** — à produire au simulateur iOS (voir plus bas).
-   Format demandé par la console : **iPhone 6,5″**, soit 1242 × 2688,
-   2688 × 1242, 1284 × 2778 ou 2778 × 1284. Seules les 3 premières
-   apparaissent sur les fiches d'installation.
-3. **Le build** (voir plus bas).
-4. Envoyer en examen.
+2. **Classification par âge** : répondre au questionnaire (tout à *Aucun*).
+3. **Téléverser les captures** des deux dossiers ci-dessus.
+4. **Rattacher le build** `1.0.0 (2)` à la version.
+5. Envoyer en examen.
 
 ---
 
@@ -101,6 +108,7 @@ Deux chemins, au choix.
 ```bash
 cd mobile
 flutter pub get
+flutter precache --ios                  # sinon `pod install` échoue (voir plus bas)
 gem install xcodeproj --no-document
 ruby ios/scripts/setup_ios_targets.rb   # INDISPENSABLE avant toute compilation
 flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
@@ -109,6 +117,31 @@ flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 Le `project.pbxproj` committé est le **shell Flutter brut** : l'extension Live
 Activity et l'app watch n'y sont pas. Le script Ruby les recrée à chaque fois.
 Ne jamais compiler sans l'avoir lancé.
+
+**Envoi vers App Store Connect sans clé API.** Si le Mac a une session Xcode
+authentifiée (celle qui sert déjà à la signature automatique), `xcodebuild`
+envoie l'archive tout seul, sans `ASC_KEY_ID` ni mot de passe applicatif —
+c'est la voie la plus simple depuis le poste :
+
+```bash
+sed 's|<string>export</string>|<string>upload</string>|' \
+  ios/ExportOptions.plist > /tmp/UploadOptions.plist
+xcodebuild -exportArchive \
+  -archivePath build/ios/archive/Runner.xcarchive \
+  -exportOptionsPlist /tmp/UploadOptions.plist \
+  -exportPath /tmp/upload-out -allowProvisioningUpdates
+```
+
+**Pièges de mise en route rencontrés sur un Mac neuf :**
+
+- `pod install` échoue sur « `Flutter.xcframework` must exist » tant que
+  `flutter precache --ios` n'a pas été lancé (le clone du SDK ne télécharge
+  pas les artefacts iOS).
+- Un build **simulateur** exige le runtime **watchOS** (`xcodebuild
+  -downloadPlatform watchOS`, ~3,9 Go) : le scheme `Runner` embarque l'app
+  watch, donc sans lui xcodebuild s'arrête sur « watchOS 26.2 must be
+  installed in order to run the scheme ». Un build **appareil/archive**, lui,
+  n'a besoin que du SDK watchOS livré avec Xcode.
 
 ### Par la CI
 
@@ -164,11 +197,19 @@ n'existent **que sur le poste Windows**. Un build release fait sur le Mac
 retombera sur la clé debug et sera refusé par Play. Pour publier une mise à
 jour Android depuis le Mac, il faut d'abord y copier ces deux fichiers.
 
-**`UIBackgroundModes = audio`** est le motif de rejet le plus probable côté
-Apple : ce mode vise les apps qui diffusent de l'audio en continu, or
-PausePump ne joue qu'un bip bref. Les notes pour l'examen sont rédigées dans
-`store/fiche-app-store.md`. Si Apple refuse, le repli est de retirer ce mode
-et de s'appuyer sur les notifications locales programmées.
+**`UIBackgroundModes = audio` a été retiré** de `ios/Runner/Info.plist`. Le
+mode était mort sur iOS — le seul chemin de bip en arrière-plan est
+conditionné à `Platform.isAndroid` — et il exposait à un rejet 2.5.4. Sur
+iOS, la fin de pause passe par la notification locale programmée et la Live
+Activity. Ne pas le réintroduire sans vraie lecture audio continue.
+
+**Les versions de l'appex et de l'app watch DOIVENT égaler celle de Runner**,
+sinon l'envoi échoue sur `ITMS-90473`. Elles étaient figées en dur à
+`1.0.0` / `1` : elles reprennent désormais `$(FLUTTER_BUILD_NAME)` et
+`$(FLUTTER_BUILD_NUMBER)`. Pour que ces variables soient résolues dans ces
+deux targets, `setup_ios_targets.rb` leur pose `Flutter/Generated.xcconfig`
+comme *base configuration* — sans ça elles s'évaluent silencieusement à la
+chaîne vide. Ne pas revenir à des littéraux.
 
 **Le son de fin et les écouteurs.** La notification de fin utilise le canal
 alarme, qu'Android sort toujours du haut-parleur. `MainActivity.hasHeadphones`

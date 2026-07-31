@@ -65,6 +65,11 @@ SHARED_ATTRIBUTES_FILE = File.join(IOS_DIR, 'Runner', 'RestTimerAttributes.swift
 SOUND_FILES = %w[triple.wav marimba.wav bell.wav carillon.wav aigu.wav grave.wav montee.wav]
               .map { |f| File.join(MOBILE_DIR, 'assets', 'sounds', f) }.freeze
 
+# xcconfig généré par Flutter : il porte FLUTTER_BUILD_NAME / FLUTTER_BUILD_NUMBER,
+# réécrits à CHAQUE `flutter build` (y compris quand --build-name / --build-number
+# sont passés en ligne de commande, où pubspec.yaml ne fait plus foi).
+GENERATED_XCCONFIG = File.join(IOS_DIR, 'Flutter', 'Generated.xcconfig')
+
 WIDGETS_DIR      = File.join(IOS_DIR, 'PausePumpWidgets')
 WATCH_DIR        = File.join(IOS_DIR, 'PausePumpWatch')
 WATCH_ENGINE_DIR = File.join(MOBILE_DIR, 'watch_engine', 'Sources', 'WatchEngine')
@@ -182,6 +187,32 @@ def apply_build_settings(target, settings)
   target.build_configurations.each do |config|
     settings.each { |key, value| config.build_settings[key] = value }
   end
+end
+
+# Fait hériter la target du xcconfig généré par Flutter.
+#
+# INDISPENSABLE pour le versionnage : seule la target Runner référence
+# Flutter/{Debug,Release}.xcconfig (qui incluent Generated.xcconfig). Dans les
+# targets générées ici, $(FLUTTER_BUILD_NAME) / $(FLUTTER_BUILD_NUMBER) ne sont
+# donc PAS résolus et s'évaluent à la chaîne vide — ce qui produirait un appex
+# et une app watch sans numéro de version (rejet à l'envoi).
+#
+# On référence Generated.xcconfig directement plutôt que Release.xcconfig :
+# ce dernier inclut les xcconfig CocoaPods du Runner, qui n'ont rien à faire
+# dans l'extension ni dans l'app watch.
+def ensure_flutter_base_config(project, target)
+  flutter_group = ensure_group(project.main_group, 'Flutter')
+  ref = ensure_file_reference(flutter_group, GENERATED_XCCONFIG)
+
+  target.build_configurations.each do |config|
+    if config.base_configuration_reference == ref
+      existing("base configuration #{target.name}/#{config.name}")
+    else
+      config.base_configuration_reference = ref
+      added("base configuration #{target.name}/#{config.name} → Flutter/Generated.xcconfig")
+    end
+  end
+  ref
 end
 
 # Dépendance de target (Runner → extension / watch), sans doublon.
@@ -336,12 +367,19 @@ def setup_widget_target(project, runner, runner_group)
                        'SDKROOT'                    => 'iphoneos',
                        'SUPPORTED_PLATFORMS'        => 'iphoneos iphonesimulator',
                        'CODE_SIGN_STYLE'            => 'Automatic',
-                       # Alignées sur pubspec.yaml (version: 1.0.0+1) : la
-                       # version de l'appex doit ÉGALER celle de l'app hôte.
-                       'CURRENT_PROJECT_VERSION'    => '1',
-                       'MARKETING_VERSION'          => '1.0.0',
+                       # La version de l'appex doit ÉGALER celle de l'app hôte,
+                       # sinon l'envoi échoue (ITMS-90473). On reprend donc les
+                       # mêmes variables que Runner au lieu de figer des
+                       # littéraux : tout bump de pubspec.yaml (ou tout
+                       # --build-number) suit automatiquement.
+                       # Résolues grâce à ensure_flutter_base_config ci-dessous.
+                       'CURRENT_PROJECT_VERSION'    => '$(FLUTTER_BUILD_NUMBER)',
+                       'MARKETING_VERSION'          => '$(FLUTTER_BUILD_NAME)',
                        'SKIP_INSTALL'               => 'YES',
                        'LD_RUNPATH_SEARCH_PATHS'    => '$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks')
+
+  # Sans ça, les $(FLUTTER_BUILD_*) posés juste au-dessus resteraient vides.
+  ensure_flutter_base_config(project, widget)
 
   # Runner dépend de l'extension et l'embarque dans PlugIns/ (spec 13).
   ensure_dependency(runner, widget)
@@ -431,10 +469,15 @@ def setup_watch_target(project, runner)
                        'ASSETCATALOG_COMPILER_APPICON_NAME' => 'AppIcon',
                        'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => '',
                        'CODE_SIGN_STYLE'           => 'Automatic',
-                       'CURRENT_PROJECT_VERSION'   => '1',
-                       'MARKETING_VERSION'         => '1.0.0',
+                       # Même contrainte que pour l'appex : la version de l'app
+                       # watch doit ÉGALER celle de l'app hôte (ITMS-90473).
+                       'CURRENT_PROJECT_VERSION'   => '$(FLUTTER_BUILD_NUMBER)',
+                       'MARKETING_VERSION'         => '$(FLUTTER_BUILD_NAME)',
                        'SKIP_INSTALL'              => 'YES',
                        'ENABLE_PREVIEWS'           => 'YES')
+
+  # Sans ça, les $(FLUTTER_BUILD_*) posés juste au-dessus resteraient vides.
+  ensure_flutter_base_config(project, watch)
 
   # Entitlement « notifications time-sensitive » : la montre planifie ses
   # notifications de fin de phase en .timeSensitive (WatchSessionModel) —

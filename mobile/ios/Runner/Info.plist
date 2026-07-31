@@ -53,10 +53,13 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
+	<!-- Pas de UIBackgroundModes = audio : ce mode vise les apps qui diffusent
+	     de l'audio en continu, et l'App Review le rejette (2.5.4) quand rien
+	     n'est joué en arrière-plan. Or sur iOS rien ne l'est : le signal de fin
+	     de pause est une notification locale programmée (NotificationService)
+	     et le décompte écran verrouillé est rendu par la Live Activity. Le bip
+	     de premier plan, lui, ne dépend que de la catégorie AVAudioSession
+	     .playback posée dans lib/services/audio_service.dart. -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

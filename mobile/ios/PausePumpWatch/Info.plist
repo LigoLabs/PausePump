@@ -17,10 +17,14 @@
 	<string>PausePump</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- Ne JAMAIS figer ces deux valeurs : elles doivent égaler celles de
+	     l'app hôte, sinon l'envoi à App Store Connect échoue (ITMS-90473).
+	     Les build settings correspondants sont posés par
+	     ios/scripts/setup_ios_targets.rb depuis $(FLUTTER_BUILD_*). -->
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>

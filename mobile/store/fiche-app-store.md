@@ -124,7 +124,7 @@ PausePump est un minuteur de temps de repos pour la musculation. Aucun compte n'
 
 Pour tester : choisir un nombre de séries sur l'écran d'accueil, appuyer sur « C'est parti », valider une série, puis choisir une durée de pause. Le décompte démarre.
 
-L'app déclare UIBackgroundModes = audio car le signal sonore de fin de pause doit être émis à l'heure exacte alors que l'utilisateur s'entraîne, téléphone verrouillé et rangé. C'est la fonction centrale de l'app : sans ce signal, un minuteur de repos ne sert à rien. Une Live Activity affiche en parallèle le décompte sur l'écran verrouillé et dans la Dynamic Island.
+Quand l'utilisateur quitte l'app ou verrouille son téléphone pendant une pause, le signal de fin est émis par une notification locale programmée à l'avance, et le temps restant s'affiche sur l'écran verrouillé et dans la Dynamic Island via une Live Activity. L'app ne déclare aucun mode d'exécution en arrière-plan.
 ```
 
 ## Captures d'écran
@@ -153,13 +153,21 @@ de durée, minuteur en cours, options.
 
 ## Points de vigilance pour la revue
 
-**`UIBackgroundModes = audio`** est l'équivalent iOS du
-`FOREGROUND_SERVICE_SPECIAL_USE` d'Android, et Apple le scrute : ce mode est
-prévu pour les apps qui diffusent de l'audio en continu, or PausePump ne joue
-qu'un bip bref en fin de décompte. C'est le motif de rejet le plus probable.
-Les notes pour l'examen ci-dessus l'expliquent ; si Apple refuse malgré tout,
-le repli est de retirer ce mode et de s'appuyer uniquement sur les
-notifications locales programmées, comme le fait déjà la version Android.
+**`UIBackgroundModes = audio` a été retiré** (le 31 juillet 2026, avant la
+première soumission). Ce mode vise les apps qui diffusent de l'audio en
+continu ; l'App Review le rejette au titre du point 2.5.4 quand rien n'est
+joué en arrière-plan — et c'était précisément le cas ici : le seul chemin de
+bip en arrière-plan est conditionné à `Platform.isAndroid`
+(`lib/state/timer_controller.dart`), donc sur iOS le mode ne servait à rien.
+
+Le comportement iOS est inchangé sans lui : le signal de fin vient de la
+notification locale programmée (`NotificationService.scheduleEnd`) et le
+décompte écran verrouillé de la Live Activity. Le bip de premier plan reste
+audible cloche coupée grâce à la catégorie AVAudioSession `.playback`, qui
+ne dépend pas de ce mode.
+
+**Ne pas le réintroduire** sans ajouter en même temps une vraie lecture audio
+continue en arrière-plan.
 
 **Entitlement « Time Sensitive Notifications »** — à activer sur les App IDs
 `com.ligolabs.pausepump` et `.watchkitapp` dans le portail développeur, sinon
