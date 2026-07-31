@@ -24,12 +24,32 @@ struct StartView: View {
     private var maxSeries: Int { kSeriesChoices.last ?? 6 }
 
     var body: some View {
-        // ScrollView : sur un 40 mm, logo + mode + séries + bouton ne tiennent
-        // pas d'un bloc. Sur les grands boîtiers rien ne défile.
-        ScrollView {
-            // Espacement serré : en mode Effort + Repos il y a une rangée de
-            // plus, et le GO doit rester visible sans défiler.
-            VStack(spacing: PPMetrics.s(5)) {
+        // Le ScrollView reste indispensable sur les petits boîtiers, mais son
+        // contenu s'y empilait à partir du haut, laissant du vide en bas
+        // depuis le retrait du logo. En lui imposant AU MOINS la hauteur
+        // visible, le bloc se centre verticalement quand il tient à l'écran,
+        // et redevient défilable dès qu'il déborde.
+        GeometryReader { geo in
+            ScrollView {
+                content.frame(maxWidth: .infinity, minHeight: geo.size.height)
+            }
+        }
+        .overlay {
+            PPCornerButton(symbol: "gearshape.fill") { showSettings = true }
+                .ppTopLeftCorner()
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView().environmentObject(model)
+        }
+        .sheet(isPresented: $showEffortSetup) {
+            EffortSetupView(series: series).environmentObject(model)
+        }
+    }
+
+    private var content: some View {
+        // Espacement serré : en mode Effort + Repos il y a une rangée de
+        // plus, et le GO doit rester visible sans défiler.
+        VStack(spacing: PPMetrics.s(5)) {
                 // Pas de logo « PausePump » ici : sur ~157 pt de hauteur utile,
                 // il coûtait une rangée entière pour rappeler le nom de l'app
                 // qu'on vient d'ouvrir. La place va aux commandes.
@@ -50,20 +70,9 @@ struct StartView: View {
                     Text("GO")
                 }
                 .buttonStyle(PPGoButtonStyle())
-            }
-            .padding(.horizontal, PPMetrics.gutter)
-            .padding(.bottom, 4)
         }
-        .overlay {
-            PPCornerButton(symbol: "gearshape.fill") { showSettings = true }
-                .ppTopLeftCorner()
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView().environmentObject(model)
-        }
-        .sheet(isPresented: $showEffortSetup) {
-            EffortSetupView(series: series).environmentObject(model)
-        }
+        .padding(.horizontal, PPMetrics.gutter)
+        .padding(.vertical, 4)
     }
 
     // — Mode : deux pastilles, celle du mode actif est pleine —

@@ -289,4 +289,26 @@ final class WorkoutEngineTests: XCTestCase {
         engine.applyPhoneContext(lastPause: nil, mode: .effort)
         XCTAssertEqual(engine.mode, .pause)
     }
+
+    func testDureesPersonnalisees() {
+        // Valeurs hors bornes écartées, liste triée et dédoublonnée.
+        engine.setDurations([90, 30, 90, 0, 99_999, 45])
+        XCTAssertEqual(engine.durations, [30, 45, 90])
+
+        // Une liste vide serait ingérable : la précédente est conservée.
+        engine.setDurations([])
+        XCTAssertEqual(engine.durations, [30, 45, 90])
+    }
+
+    func testSelectionRabattueQuandLaDureeDisparait() {
+        engine.setDurations([30, 60, 75, 300])
+        engine.applyPhoneContext(lastPause: 75, mode: nil)
+        XCTAssertEqual(engine.lastPause, 75)
+
+        // 75 retirée : la sélection doit se rabattre sur la plus proche encore
+        // offerte (60), sinon le sélecteur n'a plus rien en évidence.
+        engine.setDurations([30, 60, 300])
+        XCTAssertEqual(engine.lastPause, 60)
+        XCTAssertTrue(engine.durations.contains(engine.defaultDuration()))
+    }
 }

@@ -87,6 +87,19 @@ public final class WorkoutEngine {
         let cleaned = Set(list.filter { $0 >= kMinDuration && $0 <= kMaxDuration })
         guard !cleaned.isEmpty else { return }
         durations = cleaned.sorted()
+
+        // Une durée supprimée ne doit pas rester sélectionnée : `defaultDuration()`
+        // renverrait une valeur absente de la liste, et le sélecteur n'aurait plus
+        // aucune tuile en évidence. On se rabat sur la plus proche encore offerte.
+        lastPause = nearestDuration(lastPause)
+        effortSel = nearestDuration(effortSel)
+        restSel = nearestDuration(restSel)
+    }
+
+    /// Durée proposée la plus proche de `seconds` (elle-même si elle est offerte).
+    private func nearestDuration(_ seconds: Int) -> Int {
+        if durations.contains(seconds) { return seconds }
+        return durations.min { abs($0 - seconds) < abs($1 - seconds) } ?? seconds
     }
 
     // ---- État de séance ----
