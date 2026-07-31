@@ -30,13 +30,9 @@ struct StartView: View {
             // Espacement serré : en mode Effort + Repos il y a une rangée de
             // plus, et le GO doit rester visible sans défiler.
             VStack(spacing: PPMetrics.s(5)) {
-                // — Logo : « Pause » blanc + « Pump » teal —
-                HStack(spacing: 0) {
-                    Text("Pause").foregroundColor(PPColor.text)
-                    Text("Pump").foregroundColor(PPColor.accent)
-                }
-                .font(.system(size: PPMetrics.s(19), weight: .heavy, design: .rounded))
-
+                // Pas de logo « PausePump » ici : sur ~157 pt de hauteur utile,
+                // il coûtait une rangée entière pour rappeler le nom de l'app
+                // qu'on vient d'ouvrir. La place va aux commandes.
                 modePicker
 
                 seriesStepper
