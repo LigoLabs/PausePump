@@ -82,9 +82,12 @@ Play, et renommerait aussi l'éditeur de l'app Wishfast en production.
   attendues (aucun recadrage nécessaire) :
   - iPhone 6,5″ → `store/screenshots-ios/`, 5 captures en **1284 × 2778**
     (simulateur iPhone 14 Plus) ;
+  - iPad 13″ → `store/screenshots-ipad/`, 5 captures en **2064 × 2752**
+    (simulateur iPad Pro 13″ M5). **Obligatoires** : l'app cible
+    `TARGETED_DEVICE_FAMILY = 1,2`, donc la console réclame l'onglet iPad.
   - Apple Watch → `store/screenshots-watch/`, 4 captures en **416 × 496**
-    (simulateur Series 10 46 mm). **Obligatoires** : le binaire embarque une
-    app watchOS, donc App Store Connect réclame cet onglet.
+    (simulateur Series 10 46 mm). **Obligatoires** aussi : le binaire
+    embarque une app watchOS.
 - **Build `1.0.0 (4)` envoyé** depuis le Mac et accepté par App Store Connect.
   Les builds 1 à 3 l'ont été aussi et restent visibles dans la console : ne
   pas les rattacher, ils précèdent la refonte de l'app watch.
