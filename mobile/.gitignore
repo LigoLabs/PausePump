@@ -25,6 +25,9 @@ android/app/.cxx/
 # Artefacts SwiftPM du moteur montre (`swift test`) — ~190 Mo.
 watch_engine/.build/
 
+# macOS
+.DS_Store
+
 # IDE
 .idea/
 .vscode/
