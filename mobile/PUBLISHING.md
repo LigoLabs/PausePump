@@ -196,6 +196,14 @@ tourne sur iOS.
 
 ## Pièges rencontrés, à ne pas réintroduire
 
+**L'icône watchOS doit avoir un fond CLAIR.** Motif du rejet du 3 août 2026
+(guideline 4) : watchOS masque les icônes en rond, et avec le fond sombre de
+la marque (`#0F1219`) le disque se confondait avec le cadran noir — l'icône
+ne paraissait pas circulaire. `scripts/gen_icons.js` a désormais un mode
+`watch` dédié qui inverse la palette (fond accent, anneau et barres sombres) ;
+iOS, Android et les fiches store gardent le fond sombre. Ne pas repasser la
+montre en mode `full`.
+
 **Les règles R8 sont obligatoires.** Sans `android/app/proguard-rules.pro`, la
 minification release casse la sérialisation Gson de
 `flutter_local_notifications` et l'app **plante au lancement du minuteur**

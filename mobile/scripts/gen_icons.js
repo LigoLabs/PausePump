@@ -20,6 +20,10 @@ const RING_DIM = [30, 41, 55];  // piste de l'anneau
 const BAR = [233, 240, 245];    // barres de pause
 const WHITE = [255, 255, 255];
 
+// Piste de l'anneau dans la variante montre : un teal assombri, qui reste
+// lisible sur le fond accent sans virer au noir.
+const WATCH_DIM = [17, 148, 118];
+
 const SS = 4; // supersampling ×4 : les petites tailles (20 px iOS) restent nettes
 
 function render(outW, outH, mode) {
@@ -33,9 +37,18 @@ function render(outW, outH, mode) {
   const ringOuter = base * 0.40 * scale;
   const ringInner = base * 0.32 * scale;
   const corner = base * 0.22;
-  const opaque = mode === 'full';
+  // watch : palette inversée (fond accent, motif sombre). watchOS masque les
+  // icônes en rond ; avec le fond sombre habituel, le disque se confondait
+  // avec le cadran noir et l'app a été rejetée pour ça (guideline 4).
+  const watch = mode === 'watch';
+  const opaque = mode === 'full' || watch;
   const rounded = mode === 'legacy';
   const ink = mode === 'mono';
+
+  const bgColor = watch ? RING : BG;
+  const ringLit = watch ? BG : RING;
+  const ringDim = watch ? WATCH_DIM : RING_DIM;
+  const barColor = watch ? BG : BAR;
 
   function setPx(x, y, c) {
     const i = (y * w + x) * 4;
@@ -59,7 +72,7 @@ function render(outW, outH, mode) {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (rounded && !inRoundedSquare(x, y)) continue; // transparent
-      if (opaque || rounded) setPx(x, y, ink ? WHITE : BG);
+      if (opaque || rounded) setPx(x, y, ink ? WHITE : bgColor);
 
       const dx = x - cx, dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -68,9 +81,9 @@ function render(outW, outH, mode) {
         if (ang < 0) ang += Math.PI * 2;
         const lit = ang / (Math.PI * 2) <= 0.72;
         if (ink) { if (lit) setPx(x, y, WHITE); }
-        else setPx(x, y, lit ? RING : RING_DIM);
+        else setPx(x, y, lit ? ringLit : ringDim);
       }
-      if (inBar(x, y, bar1) || inBar(x, y, bar2)) setPx(x, y, ink ? WHITE : BAR);
+      if (inBar(x, y, bar1) || inBar(x, y, bar2)) setPx(x, y, ink ? WHITE : barColor);
     }
   }
 
@@ -130,8 +143,10 @@ for (const [d, k] of Object.entries(density)) {
 }
 
 // watchOS : une seule taille (1024, opaque), masquée en rond par le système.
+// Variante « watch » à fond clair : Apple rejette (guideline 4) une icône
+// watchOS à fond noir, qui ne se distingue pas du cadran une fois masquée.
 write('ios/PausePumpWatch/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png',
-  render(1024, 1024, 'full'));
+  render(1024, 1024, 'watch'));
 
 // Fiches store : icône Play 512 (opaque) + bandeau « feature graphic ».
 write('store/play-icon-512.png', render(512, 512, 'full'));

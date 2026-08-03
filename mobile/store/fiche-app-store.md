@@ -176,3 +176,9 @@ la signature échoue à l'archive (voir `ios/scripts/setup_ios_targets.rb`).
 **Icône de l'app Watch** — générée par `node scripts/gen_icons.js`, déjà en
 place dans `ios/PausePumpWatch/Assets.xcassets`. Une app watchOS sans icône
 propre est refusée.
+
+Son fond doit être **clair**, et elle est donc la seule icône du projet à ne
+pas reprendre le fond sombre de la marque : le build 1.0.0 (4) a été rejeté
+le 3 août 2026 (guideline 4) parce que, masquée en rond par watchOS, une
+icône à fond `#0F1219` se confondait avec le cadran noir. Le mode `watch` de
+`gen_icons.js` inverse la palette pour cette seule sortie.
